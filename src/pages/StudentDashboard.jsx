@@ -345,6 +345,7 @@ const ExamsTab = ({ user, exams, results, loading, navigate, isMobile }) => {
           <p className="text-gray-500 font-medium">No exams available right now.</p>
         </div>
       ) : (
+        <>
         {/* Mobile card list */}
         <div className="sm:hidden space-y-3">
           {exams.map(exam => {
@@ -438,6 +439,7 @@ const ExamsTab = ({ user, exams, results, loading, navigate, isMobile }) => {
             </table>
           </div>
         </div>
+        </>
       )}
 
       {/* Exam Details Modal */}
