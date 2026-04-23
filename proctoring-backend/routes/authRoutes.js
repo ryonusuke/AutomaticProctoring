@@ -22,24 +22,19 @@ router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.post('/kyc', submitKyc);
 
-// Google OAuth — pass role as query param, stored in passport callbackURL
+// Google OAuth — role passed via state param (survives redirect, no callbackURL mutation)
 router.get('/google', (req, res, next) => {
   const role = ['student', 'examiner'].includes(req.query.role) ? req.query.role : 'student';
-  // Store role in the callbackURL so it survives the redirect without needing session state
-  const callbackURL = `${process.env.SERVER_URL || 'http://localhost:5000'}/api/auth/google/callback?role=${role}`;
   passport.authenticate('google', {
     scope: ['email', 'profile'],
     session: false,
-    callbackURL,
+    state: role,
   })(req, res, next);
 });
 
 router.get('/google/callback', (req, res, next) => {
-  const role = ['student', 'examiner'].includes(req.query.role) ? req.query.role : 'student';
-  const callbackURL = `${process.env.SERVER_URL || 'http://localhost:5000'}/api/auth/google/callback?role=${role}`;
   passport.authenticate('google', {
     session: false,
-    callbackURL,
     failureRedirect: `${process.env.CLIENT_URL || 'http://localhost:5173'}/?error=google_auth_failed`,
   })(req, res, next);
 }, googleAuthCallback);
