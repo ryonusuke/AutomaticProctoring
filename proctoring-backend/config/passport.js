@@ -7,7 +7,8 @@ passport.use(
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       callbackURL: `${process.env.SERVER_URL || 'http://localhost:5000'}/api/auth/google/callback`,
-      proxy: true
+      proxy: true,
+      store: false,  // disable built-in state/session store — no session middleware present
     },
     (accessToken, refreshToken, profile, done) => {
       console.log('[GOOGLE AUTH SUCCESS]', { profileId: profile.id, email: profile.emails?.[0]?.value });

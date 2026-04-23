@@ -46,6 +46,15 @@ app.get('/api/health', (_req, res) =>
   res.status(200).json({ status: 'success', message: 'Proctoring API is running.' })
 );
 
+// Global error handler — catches passport/oauth errors and redirects instead of 500
+app.use((err, req, res, next) => {
+  console.error('[GLOBAL ERROR]', err.message);
+  if (req.path.includes('/auth/google')) {
+    return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/?error=google_auth_failed`);
+  }
+  res.status(500).json({ success: false, message: err.message });
+});
+
 app.get('/api/auth/test-google', (req, res) => {
   res.json({
     clientId: process.env.GOOGLE_CLIENT_ID,
