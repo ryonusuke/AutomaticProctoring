@@ -1433,8 +1433,11 @@ const ExamsTab = ({ user, exams, loadingExams, onRefresh }) => {
 
   const handleViewResults = async (exam) => {
     try {
-      const { data } = await api.get(`/exams/${exam._id}/results`);
-      setExamResults({ exam, results: data.data });
+      const [resultsRes, examRes] = await Promise.all([
+        api.get(`/exams/${exam._id}/results`),
+        api.get(`/exams/${exam._id}?teacher=true`),
+      ]);
+      setExamResults({ exam: examRes.data.data, results: resultsRes.data.data });
     } catch (err) { alert('Failed to load results.'); }
   };
 
