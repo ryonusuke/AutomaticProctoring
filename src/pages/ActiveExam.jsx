@@ -11,10 +11,19 @@ import {
 
 import api from '../services/api';
 
+const isMobileOrTablet = () => {
+  const ua = navigator.userAgent;
+  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i.test(ua);
+  const isTouchOnly = navigator.maxTouchPoints > 1 && !window.matchMedia('(pointer: fine)').matches;
+  const isSmallScreen = window.screen.width < 1024;
+  return isMobileUA || (isTouchOnly && isSmallScreen);
+};
+
 const ActiveExam = () => {
   const [searchParams] = useSearchParams();
   const id = searchParams.get('id');
   const navigate = useNavigate();
+  const [isBlockedDevice] = useState(() => isMobileOrTablet());
   
   const [user] = useState(JSON.parse(localStorage.getItem('user')));
   const [exam, setExam] = useState(null);
@@ -380,6 +389,29 @@ const ActiveExam = () => {
   // 7. UI RENDERING 
   // ==========================================
   if (!exam) return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="h-12 w-12 text-blue-600 animate-spin" /></div>;
+
+  // DEVICE BLOCK SCREEN
+  if (isBlockedDevice) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-slate-100 font-sans">
+        <div className="max-w-md w-full bg-slate-800 rounded-3xl p-10 text-center shadow-2xl border border-red-500/30">
+          <AlertOctagon className="h-16 w-16 text-red-500 mx-auto mb-6" />
+          <h1 className="text-2xl font-black text-white mb-3">Device Not Allowed</h1>
+          <p className="text-slate-400 mb-6">
+            This exam must be taken on a <span className="text-white font-bold">desktop or laptop computer</span>.
+            Mobile phones and tablets are not permitted.
+          </p>
+          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 text-sm text-red-300 mb-8">
+            <p className="font-bold mb-1">Why is this required?</p>
+            <p>The proctoring system requires a full desktop browser with webcam access and screen monitoring capabilities that are not available on mobile devices.</p>
+          </div>
+          <button onClick={() => navigate('/dashboard')} className="w-full bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold transition-all">
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // PRE-EXAM INSTRUCTION SCREEN
   if (!examStarted) {
