@@ -146,13 +146,13 @@ const KycVerification = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col font-sans selection:bg-blue-500 selection:text-white">
-      <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex justify-between items-center z-10">
+      <header className="bg-gray-900 border-b border-gray-800 px-4 sm:px-6 py-4 flex justify-between items-center z-10">
         <div className="flex items-center gap-2">
-          <ShieldCheck className="h-8 w-8 text-blue-500" />
-          <span className="text-xl font-bold text-white tracking-tight">Automatic Proctoring System</span>
+          <ShieldCheck className="h-7 w-7 sm:h-8 sm:w-8 text-blue-500 shrink-0" />
+          <span className="text-base sm:text-xl font-bold text-white tracking-tight">Automatic Proctoring System</span>
         </div>
-        <div className="flex items-center gap-2 text-gray-400 text-sm font-medium bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-700">
-          <Lock className="h-4 w-4" /> Edge AI {isModelsLoaded ? 'Armed' : 'Loading...'}
+        <div className="flex items-center gap-2 text-gray-400 text-xs sm:text-sm font-medium bg-gray-800 px-2.5 sm:px-3 py-1.5 rounded-lg border border-gray-700">
+          <Lock className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> <span className="hidden sm:inline">Edge AI </span>{isModelsLoaded ? 'Armed' : 'Loading...'}
         </div>
       </header>
 

@@ -345,7 +345,48 @@ const ExamsTab = ({ user, exams, results, loading, navigate, isMobile }) => {
           <p className="text-gray-500 font-medium">No exams available right now.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        {/* Mobile card list */}
+        <div className="sm:hidden space-y-3">
+          {exams.map(exam => {
+            const status = getExamStatus(exam);
+            const canStart = isKycVerified && status === 'live' && !isMobile;
+            return (
+              <div key={exam._id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm">{exam.title}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{exam.courseCode} · <Clock className="h-3 w-3 inline" /> {exam.durationMinutes}m</p>
+                  </div>
+                  <StatusBadge status={status} />
+                </div>
+                <p className="text-xs text-gray-400">{new Date(exam.startTime).toLocaleString()}</p>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setSelectedExam(exam)}
+                    className="text-xs font-bold text-gray-600 hover:bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 transition-colors">
+                    Details
+                  </button>
+                  {submittedExamIds.has(exam._id) ? (
+                    <span className="text-xs text-green-600 font-bold flex items-center gap-1 px-3 py-1.5 bg-green-50 rounded-lg border border-green-200">
+                      <CheckCircle className="h-3.5 w-3.5" /> Submitted
+                    </span>
+                  ) : canStart ? (
+                    <button onClick={() => navigate(`/exam?id=${exam._id}`)}
+                      className="text-xs font-bold text-white bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
+                      <PlayCircle className="h-3.5 w-3.5" /> Start
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-400 flex items-center gap-1 px-3 py-1.5">
+                      <Lock className="h-3.5 w-3.5" />
+                      {isMobile ? 'Desktop Only' : !isKycVerified ? 'KYC Required' : status === 'upcoming' ? 'Not Started' : 'Ended'}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {/* Desktop table */}
+        <div className="hidden sm:block bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
@@ -485,41 +526,71 @@ const ResultsTab = ({ results, loading }) => {
         ) : results.length === 0 ? (
           <div className="text-center py-16 text-gray-400"><BarChart2 className="h-10 w-10 mx-auto mb-3 text-gray-200" /><p>No results yet.</p></div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>{['Exam', 'Score', 'Trust Score', 'Status', 'Date', ''].map(h => (
-                  <th key={h} className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">{h}</th>
-                ))}</tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {results.map(r => (
-                  <tr key={r._id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-5 py-4">
-                      <p className="font-semibold text-gray-900">{r.examId?.title || 'Unknown'}</p>
+          <>
+            {/* Mobile cards */}
+            <div className="sm:hidden divide-y divide-gray-50">
+              {results.map(r => (
+                <div key={r._id} className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-semibold text-gray-900 text-sm">{r.examId?.title || 'Unknown'}</p>
                       <p className="text-xs text-gray-400">{r.examId?.courseCode}</p>
-                    </td>
-                    <td className="px-5 py-4 font-bold text-gray-900">
+                    </div>
+                    {statusBadge(r.status)}
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="font-bold text-gray-900">
                       {r.status === 'pending_review' ? <span className="text-gray-400">—</span> : `${r.score}/${r.totalMarks}`}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                        r.trustScore >= 80 ? 'bg-green-100 text-green-700' :
-                        r.trustScore >= 50 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                      }`}>{r.trustScore}%</span>
-                    </td>
-                    <td className="px-5 py-4">{statusBadge(r.status)}</td>
-                    <td className="px-5 py-4 text-gray-400 text-xs">{new Date(r.createdAt).toLocaleDateString()}</td>
-                    <td className="px-5 py-4">
-                      {r.status !== 'pending_review' && (
-                        <button onClick={() => setSelected(r)} className="text-xs font-bold text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">View Details</button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                      r.trustScore >= 80 ? 'bg-green-100 text-green-700' :
+                      r.trustScore >= 50 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                    }`}>{r.trustScore}%</span>
+                    <span className="text-xs text-gray-400 ml-auto">{new Date(r.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  {r.status !== 'pending_review' && (
+                    <button onClick={() => setSelected(r)} className="text-xs font-bold text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">View Details</button>
+                  )}
+                </div>
+              ))}
+            </div>
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr>{['Exam', 'Score', 'Trust Score', 'Status', 'Date', ''].map(h => (
+                    <th key={h} className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">{h}</th>
+                  ))}</tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {results.map(r => (
+                    <tr key={r._id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-4">
+                        <p className="font-semibold text-gray-900">{r.examId?.title || 'Unknown'}</p>
+                        <p className="text-xs text-gray-400">{r.examId?.courseCode}</p>
+                      </td>
+                      <td className="px-5 py-4 font-bold text-gray-900">
+                        {r.status === 'pending_review' ? <span className="text-gray-400">—</span> : `${r.score}/${r.totalMarks}`}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                          r.trustScore >= 80 ? 'bg-green-100 text-green-700' :
+                          r.trustScore >= 50 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                        }`}>{r.trustScore}%</span>
+                      </td>
+                      <td className="px-5 py-4">{statusBadge(r.status)}</td>
+                      <td className="px-5 py-4 text-gray-400 text-xs">{new Date(r.createdAt).toLocaleDateString()}</td>
+                      <td className="px-5 py-4">
+                        {r.status !== 'pending_review' && (
+                          <button onClick={() => setSelected(r)} className="text-xs font-bold text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">View Details</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

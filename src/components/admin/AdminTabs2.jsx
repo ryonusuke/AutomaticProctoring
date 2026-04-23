@@ -226,7 +226,7 @@ export const TicketsTab = ({ tickets, onRefresh }) => {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             {['all', 'student', 'examiner'].map(r => (
               <button key={r} onClick={() => setRoleFilter(r)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-colors ${
@@ -234,7 +234,7 @@ export const TicketsTab = ({ tickets, onRefresh }) => {
                 }`}>{r === 'examiner' ? 'Teachers' : r === 'student' ? 'Students' : 'All Roles'}</button>
             ))}
           </div>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             {['all', 'urgent', 'high', 'medium', 'low'].map(p => (
               <button key={p} onClick={() => setPriorityFilter(p)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-colors ${
@@ -242,7 +242,7 @@ export const TicketsTab = ({ tickets, onRefresh }) => {
                 }`}>{p === 'all' ? 'All Priority' : p}</button>
             ))}
           </div>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             {['open', 'in_progress', 'resolved', 'closed', 'all'].map(f => (
               <button key={f} onClick={() => setFilter(f)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-colors ${

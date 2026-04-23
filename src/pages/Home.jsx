@@ -235,16 +235,16 @@ const Home = () => {
               </div>
 
               {/* Role cards */}
-              <div className="grid grid-cols-3 gap-3 max-w-lg mx-auto">
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 max-w-lg mx-auto">
                 {[
                   { role: 'Admin', desc: 'Manage users & KYC', color: 'border-red-800/50 bg-red-950/30', dot: 'bg-red-500' },
                   { role: 'Examiner', desc: 'Create & grade exams', color: 'border-purple-800/50 bg-purple-950/30', dot: 'bg-purple-500' },
                   { role: 'Student', desc: 'Take exams securely', color: 'border-blue-800/50 bg-blue-950/30', dot: 'bg-blue-500' },
                 ].map(r => (
-                  <div key={r.role} className={`p-3 rounded-xl border ${r.color} text-center`}>
+                  <div key={r.role} className={`p-2 sm:p-3 rounded-xl border ${r.color} text-center`}>
                     <div className={`h-2 w-2 rounded-full ${r.dot} mx-auto mb-2`} />
-                    <p className="text-xs font-bold text-white">{r.role}</p>
-                    <p className="text-[10px] text-gray-500 mt-0.5">{r.desc}</p>
+                    <p className="text-[11px] sm:text-xs font-bold text-white">{r.role}</p>
+                    <p className="text-[9px] sm:text-[10px] text-gray-500 mt-0.5 hidden sm:block">{r.desc}</p>
                   </div>
                 ))}
               </div>

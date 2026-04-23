@@ -208,7 +208,7 @@ const AuthPopup = ({ isOpen, onClose, initialView = 'login' }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 pt-16 bg-black/30 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-4 sm:pt-16 bg-black/30 backdrop-blur-sm">
       <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl border border-gray-100 flex flex-col animate-in zoom-in-95 duration-200 max-h-[90vh]">
 
         {/* Header */}

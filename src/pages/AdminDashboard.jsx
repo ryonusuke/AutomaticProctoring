@@ -55,7 +55,7 @@ const DashboardHome = ({ students, exams, results, tickets, onNavigate }) => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         {stats.map(s => (
           <button key={s.label} onClick={() => onNavigate(s.tab)}
             className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm text-left hover:shadow-md hover:border-blue-200 transition-all">
@@ -126,16 +126,16 @@ const DashboardHome = ({ students, exams, results, tickets, onNavigate }) => {
         <h2 className="font-bold text-gray-900 mb-4">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
           <button onClick={() => onNavigate('kyc')} className="flex items-center gap-2 px-4 py-2.5 bg-yellow-600 text-white rounded-xl text-sm font-bold hover:bg-yellow-700 transition-colors">
-            <ShieldCheck className="h-4 w-4" /> Review KYC ({pending} pending)
+            <ShieldCheck className="h-4 w-4 shrink-0" /> Review KYC ({pending} pending)
           </button>
           <button onClick={() => onNavigate('tickets')} className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-colors">
-            <LifeBuoy className="h-4 w-4" /> Support Tickets ({openTickets} open · {teacherTickets} from teachers)
+            <LifeBuoy className="h-4 w-4 shrink-0" /> <span>Support Tickets <span className="hidden sm:inline">({openTickets} open · {teacherTickets} from teachers)</span><span className="sm:hidden">({openTickets})</span></span>
           </button>
           <button onClick={() => onNavigate('students')} className="flex items-center gap-2 px-4 py-2.5 bg-gray-700 text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors">
-            <Users className="h-4 w-4" /> Manage Users ({students.length} total)
+            <Users className="h-4 w-4 shrink-0" /> Manage Users ({students.length})
           </button>
           <button onClick={() => onNavigate('announcements')} className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-bold hover:bg-purple-700 transition-colors">
-            <Megaphone className="h-4 w-4" /> Send Announcement
+            <Megaphone className="h-4 w-4 shrink-0" /> Send Announcement
           </button>
         </div>
       </div>
