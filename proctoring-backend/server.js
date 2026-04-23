@@ -3,6 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 const passport = require('./config/passport');
 
 const authRoutes = require('./routes/authRoutes');
@@ -30,6 +31,7 @@ app.use(helmet({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(cookieParser());
 app.use(passport.initialize());
 
 // Routes

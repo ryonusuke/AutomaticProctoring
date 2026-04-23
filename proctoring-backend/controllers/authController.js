@@ -236,8 +236,9 @@ exports.googleAuthCallback = async (req, res) => {
 
     const { id, displayName, emails } = req.user;
     const email = emails[0].value;
-    // role passed via OAuth state param (defaults to 'student')
-    const requestedRole = ['student', 'examiner'].includes(req.query.state) ? req.query.state : 'student';
+    // role passed via cookie set before OAuth redirect (defaults to 'student')
+    const requestedRole = ['student', 'examiner'].includes(req.cookies?.oauth_role) ? req.cookies.oauth_role : 'student';
+    res.clearCookie('oauth_role');
 
     let user = await User.findOne({ email });
 

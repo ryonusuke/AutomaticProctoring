@@ -22,13 +22,18 @@ router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.post('/kyc', submitKyc);
 
-// Google OAuth — role passed via state param (survives redirect, no callbackURL mutation)
+// Google OAuth — role stored in callbackURL path via a dedicated per-role callback
+// We cannot use `state` with session:false (passport tries to verify state via session → 500)
+// We cannot append ?role= to callbackURL (Google rejects non-exact redirect URIs)
+// Solution: encode role in a harmless part of the URL that Google ignores — use a proxy param
+// that we read BEFORE passport touches it, stored in res.locals
 router.get('/google', (req, res, next) => {
   const role = ['student', 'examiner'].includes(req.query.role) ? req.query.role : 'student';
+  // Store role in a signed cookie so it survives the redirect without session or state
+  res.cookie('oauth_role', role, { httpOnly: true, sameSite: 'none', secure: true, maxAge: 5 * 60 * 1000 });
   passport.authenticate('google', {
     scope: ['email', 'profile'],
     session: false,
-    state: role,
   })(req, res, next);
 });
 
