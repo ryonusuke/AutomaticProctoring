@@ -236,8 +236,8 @@ exports.googleAuthCallback = async (req, res) => {
 
     const { id, displayName, emails } = req.user;
     const email = emails[0].value;
-    // role passed via state param (defaults to 'student')
-    const requestedRole = ['student', 'examiner'].includes(req.query.state) ? req.query.state : 'student';
+    // role passed via callbackURL query param (defaults to 'student')
+    const requestedRole = ['student', 'examiner'].includes(req.query.role) ? req.query.role : 'student';
 
     let user = await User.findOne({ email });
 
