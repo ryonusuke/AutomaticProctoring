@@ -135,7 +135,7 @@ exports.submitExam = async (req, res) => {
     } else if (hasShortAnswer) {
       status = 'pending_review'; // Awaiting teacher grading
     } else {
-      status = (score / totalMarks) >= 0.4 ? 'passed' : 'failed';
+      status = (score / totalMarks) * 100 >= (exam.passingScore ?? 40) ? 'passed' : 'failed';
     }
 
     const result = await Result.create({ studentId, examId: exam._id, score, totalMarks, trustScore, violations, status, answers, timeTaken });
@@ -366,7 +366,8 @@ exports.gradeResult = async (req, res) => {
     result.score = Math.max(0, Math.min(newScore, result.totalMarks));
     result.manualGrades = manualGrades;
     if (comments) result.comments = comments;
-    result.status = result.score / result.totalMarks >= 0.4 ? 'passed' : 'failed';
+    const passingPct = exam.passingScore ?? 40;
+    result.status = (result.score / result.totalMarks) * 100 >= passingPct ? 'passed' : 'failed';
     await result.save();
 
     if ((wasPendingReview || action) && result.studentId) {

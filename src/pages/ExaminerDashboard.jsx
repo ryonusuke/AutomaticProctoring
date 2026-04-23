@@ -522,26 +522,59 @@ const ResultsTab = ({ user, results, exams, onRefresh }) => {
             
             <div className="p-5 overflow-y-auto flex-1 space-y-4">
               {/* Score + Trust Score bar */}
-              <div className="grid grid-cols-3 gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200 text-sm">
-                <div>
-                  <p className="text-xs text-gray-500">Score</p>
-                  <p className="text-xl font-extrabold text-gray-900">{grading.score}/{grading.totalMarks}</p>
-                  <p className={`text-xs font-bold ${(grading.score/grading.totalMarks) >= 0.4 ? 'text-green-600' : 'text-red-500'}`}>{Math.round((grading.score/grading.totalMarks)*100)}% · {(grading.score/grading.totalMarks) >= 0.4 ? 'Pass' : 'Fail'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">Trust Score</p>
-                  <p className={`text-xl font-extrabold ${grading.trustScore >= 80 ? 'text-green-600' : grading.trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>{grading.trustScore}%</p>
-                  <p className="text-xs text-red-500">{grading.violations?.length || 0} violation(s)</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Trust Decision</p>
-                  <div className="flex flex-col gap-1">
-                    <button onClick={() => handleGradeSave('accept')} disabled={saving} className="text-xs font-bold px-2 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200">Accept</button>
-                    <button onClick={() => handleGradeSave('penalize')} disabled={saving} className="text-xs font-bold px-2 py-1 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200">Penalize (50%)</button>
-                    <button onClick={() => handleGradeSave('disqualify')} disabled={saving} className="text-xs font-bold px-2 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">Disqualify</button>
+              {(() => {
+                // Live score preview: sum manual grades + auto-grades for unoverridden questions
+                let liveScore = 0;
+                grading.examId?.questions?.forEach((q, i) => {
+                  if (grades[i] !== undefined && grades[i] !== '') {
+                    liveScore += Number(grades[i]) || 0;
+                  } else {
+                    const ans = grading.answers?.[i];
+                    if (q.type === 'mcq') {
+                      if (ans === q.correctOptionIndex) liveScore += q.marks;
+                    } else if (q.type === 'multiple_correct') {
+                      const correctSet = new Set(q.correctOptionIndices || []);
+                      const givenArr = Array.isArray(ans) ? ans : [];
+                      const perMark = q.marks / (correctSet.size || 1);
+                      let partial = 0;
+                      givenArr.forEach(a => { if (correctSet.has(a)) partial += perMark; else partial -= perMark; });
+                      liveScore += Math.round(Math.max(0, Math.min(partial, q.marks)) * 100) / 100;
+                    }
+                  }
+                });
+                liveScore = Math.max(0, Math.min(liveScore, grading.totalMarks));
+                const livePct = Math.round((liveScore / grading.totalMarks) * 100);
+                const passingPct = grading.examId?.passingScore ?? 40;
+                const livePass = livePct >= passingPct;
+                const changed = liveScore !== grading.score;
+                return (
+                  <div className="grid grid-cols-3 gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200 text-sm">
+                    <div>
+                      <p className="text-xs text-gray-500">Score</p>
+                      <p className="text-xl font-extrabold text-gray-900">
+                        {changed ? <span className="text-orange-600">{liveScore}</span> : grading.score}/{grading.totalMarks}
+                      </p>
+                      <p className={`text-xs font-bold ${livePass ? 'text-green-600' : 'text-red-500'}`}>
+                        {livePct}% · {livePass ? 'Pass' : 'Fail'}
+                        {changed && <span className="text-orange-500 ml-1">(live)</span>}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Trust Score</p>
+                      <p className={`text-xl font-extrabold ${grading.trustScore >= 80 ? 'text-green-600' : grading.trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>{grading.trustScore}%</p>
+                      <p className="text-xs text-red-500">{grading.violations?.length || 0} violation(s)</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Trust Decision</p>
+                      <div className="flex flex-col gap-1">
+                        <button onClick={() => handleGradeSave('accept')} disabled={saving} className="text-xs font-bold px-2 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200">Accept</button>
+                        <button onClick={() => handleGradeSave('penalize')} disabled={saving} className="text-xs font-bold px-2 py-1 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200">Penalize (50%)</button>
+                        <button onClick={() => handleGradeSave('disqualify')} disabled={saving} className="text-xs font-bold px-2 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">Disqualify</button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {gradeMsg && (
                 <div className={`px-4 py-3 rounded-xl text-sm font-medium ${gradeMsg.includes('published') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>{gradeMsg}</div>
@@ -1242,7 +1275,7 @@ const ExamResultRow = ({ r, exam, onGraded }) => {
 };
 
 // ── Exams Tab ─────────────────────────────────────────────────────────────
-const defaultExam = { title: '', description: '', courseCode: '', durationMinutes: 60, startTime: '', endTime: '', negativeMarking: false, securitySettings: { requireWebcam: true, strictBrowserLock: true, toleranceLimit: 3 } };
+const defaultExam = { title: '', description: '', courseCode: '', durationMinutes: 60, startTime: '', endTime: '', negativeMarking: false, passingScore: 40, securitySettings: { requireWebcam: true, strictBrowserLock: true, toleranceLimit: 3 } };
 const defaultQuestion = { questionText: '', type: 'mcq', options: ['', '', '', ''], correctOptionIndex: 0, correctOptionIndices: [], modelAnswer: '', marks: 1, negativeMark: 0 };
 
 const ExamsTab = ({ user, exams, loadingExams, onRefresh }) => {
@@ -1302,7 +1335,7 @@ const ExamsTab = ({ user, exams, loadingExams, onRefresh }) => {
     try {
       const { data } = await api.get(`/exams/${exam._id}`);
       const full = data.data;
-      setExamDetails({ title: full.title, courseCode: full.courseCode, durationMinutes: full.durationMinutes, startTime: toISTInputValue(full.startTime), endTime: toISTInputValue(full.endTime), securitySettings: full.securitySettings, description: full.description || '', negativeMarking: full.negativeMarking || false });
+      setExamDetails({ title: full.title, courseCode: full.courseCode, durationMinutes: full.durationMinutes, startTime: toISTInputValue(full.startTime), endTime: toISTInputValue(full.endTime), securitySettings: full.securitySettings, description: full.description || '', negativeMarking: full.negativeMarking || false, passingScore: full.passingScore ?? 40 });
       setQuestions(full.questions?.length ? full.questions : [{ ...defaultQuestion }]);
     } catch { setExamDetails({ title: exam.title, courseCode: exam.courseCode, durationMinutes: exam.durationMinutes, startTime: '', endTime: '', securitySettings: exam.securitySettings }); setQuestions([{ ...defaultQuestion }]); }
     setPdfFileName(''); setPdfBase64('');
@@ -1625,6 +1658,12 @@ const ExamsTab = ({ user, exams, loadingExams, onRefresh }) => {
                     <option value={3}>3 (Standard)</option>
                     <option value={5}>5 (Lenient)</option>
                   </select>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-medium text-gray-600">Pass %:</span>
+                  <input type="number" min={0} max={100} value={examDetails.passingScore}
+                    onChange={e => setExamDetails(p => ({ ...p, passingScore: +e.target.value }))}
+                    className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-sm outline-none" />
                 </div>
               </div>
               {/* Questions */}

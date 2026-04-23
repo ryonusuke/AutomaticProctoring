@@ -88,6 +88,12 @@ const examSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  passingScore: {
+    type: Number,
+    default: 40,
+    min: 0,
+    max: 100
+  },
   description: {
     type: String,
     default: ''
