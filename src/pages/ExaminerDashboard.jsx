@@ -1496,7 +1496,35 @@ const ExamsTab = ({ user, exams, loadingExams, onRefresh }) => {
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Mobile cards */}
+          <div className="sm:hidden divide-y divide-gray-100">
+            {exams.map(exam => (
+              <div key={exam._id} className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-semibold text-gray-900 text-sm">{exam.title}</p>
+                    <p className="text-xs text-gray-400">{exam.courseCode} · <Clock className="h-3 w-3 inline" /> {exam.durationMinutes}m</p>
+                  </div>
+                  <StatusBadge status={getExamStatus(exam)} />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => openEdit(exam)} className="text-xs font-bold text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">Edit</button>
+                  <button onClick={() => handleViewResults(exam)} className="text-xs font-bold text-green-600 hover:bg-green-50 px-3 py-1.5 rounded-lg border border-green-200">Results</button>
+                  <button onClick={() => openAssign(exam)} className="text-xs font-bold text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200">Assign</button>
+                  <button onClick={() => handleNotify(exam)} disabled={notifying === exam._id}
+                    className="text-xs font-bold text-purple-600 hover:bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-200 disabled:opacity-50">
+                    {notifying === exam._id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Notify'}
+                  </button>
+                  <button onClick={() => handleDelete(exam._id)} disabled={deleting === exam._id}
+                    className="text-xs font-bold text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-red-200 disabled:opacity-50">
+                    {deleting === exam._id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Desktop table */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
