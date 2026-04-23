@@ -4,6 +4,9 @@ const User = require('../models/User');
 const sendEmail = require('../utils/sendEmail');
 const axios = require('axios');
 
+// IST formatter for notification messages
+const toIST = (date) => new Date(date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
 // ── helpers ────────────────────────────────────────────────────────────────
 const notifyUsers = async (userIds, title, message, type = 'info') => {
   const filter = userIds && userIds.length
@@ -36,7 +39,7 @@ exports.createExam = async (req, res) => {
       notifyUsers(
         assignedStudents,
         `New Exam Assigned: ${title}`,
-        `You have been assigned to "${title}" (${courseCode}). Duration: ${durationMinutes} mins. Start: ${new Date(startTime).toLocaleString()}.`
+        `You have been assigned to "${title}" (${courseCode}). Duration: ${durationMinutes} mins. Start: ${toIST(startTime)}.`
       );
     }
 
@@ -212,7 +215,7 @@ exports.notifyStudents = async (req, res) => {
     const exam = await Exam.findById(req.params.id);
     if (!exam) return res.status(404).json({ success: false, message: 'Exam not found' });
     const { message: customMsg } = req.body;
-    const msg = customMsg || `Exam "${exam.title}" (${exam.courseCode}) — Start: ${new Date(exam.startTime).toLocaleString()}, Duration: ${exam.durationMinutes} mins.`;
+    const msg = customMsg || `Exam "${exam.title}" (${exam.courseCode}) — Start: ${toIST(exam.startTime)}, Duration: ${exam.durationMinutes} mins.`;
 
     const targetIds = exam.assignedStudents?.length ? exam.assignedStudents : [];
     
@@ -241,7 +244,7 @@ exports.assignStudents = async (req, res) => {
     
     if (studentIds?.length > 0) {
       notifyUsers(studentIds, `You've been assigned: ${exam.title}`,
-        `You have been assigned to the exam "${exam.title}" (${exam.courseCode}). Start: ${new Date(exam.startTime).toLocaleString()}.`
+        `You have been assigned to the exam "${exam.title}" (${exam.courseCode}). Start: ${toIST(exam.startTime)}.`
       );
     }
     
@@ -431,22 +434,37 @@ exports.generateFromPDF = async (req, res) => {
     const { pdfBase64, count = 5, difficulty = 'medium', type = 'mcq' } = req.body;
     if (!pdfBase64) return res.status(400).json({ success: false, message: 'PDF file is required.' });
 
-    const pdfBuffer = Buffer.from(pdfBase64.split(',')[1] || pdfBase64, 'base64');
-    
+    // Reject oversized payloads early (~3MB base64 ≈ 2.25MB PDF)
+    const MAX_BASE64_LEN = 4 * 1024 * 1024; // 4MB base64 limit
+    if (pdfBase64.length > MAX_BASE64_LEN)
+      return res.status(400).json({ success: false, message: 'PDF too large. Please upload a file under 3MB.' });
+
+    const rawBase64 = pdfBase64.split(',')[1] || pdfBase64;
+    const pdfBuffer = Buffer.from(rawBase64, 'base64');
+
     let text = '';
     try {
       const { PdfReader } = require('pdfreader');
+      const TEXT_LIMIT = 8000; // stop collecting after this many chars
       const textChunks = [];
+      let collected = 0;
       await new Promise((resolve, reject) => {
         new PdfReader().parseBuffer(pdfBuffer, (err, item) => {
-          if (err) reject(err);
-          else if (!item) resolve();
-          else if (item.text) textChunks.push(item.text);
+          if (err) return reject(err);
+          if (!item) return resolve();          // end of file
+          if (collected >= TEXT_LIMIT) return resolve(); // early exit
+          if (item.text) {
+            textChunks.push(item.text);
+            collected += item.text.length;
+          }
         });
       });
       text = textChunks.join(' ');
     } catch (parseErr) {
       return res.status(400).json({ success: false, message: 'Failed to parse PDF: ' + parseErr.message });
+    } finally {
+      // Allow GC to reclaim the buffer immediately
+      pdfBuffer.fill(0);
     }
 
     if (!text || text.trim().length < 50) {
