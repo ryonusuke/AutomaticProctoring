@@ -10,6 +10,26 @@ import ReactCrop from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import api from '../services/api';
 
+// ── Timezone helpers (IST = UTC+5:30) ────────────────────────────────────
+const toISTInputValue = (utcDateStr) => {
+  if (!utcDateStr) return '';
+  const d = new Date(utcDateStr);
+  // Shift to IST (+5:30)
+  const ist = new Date(d.getTime() + (5 * 60 + 30) * 60 * 1000);
+  return ist.toISOString().slice(0, 16);
+};
+
+const fromISTInputToUTC = (localStr) => {
+  if (!localStr) return '';
+  // Treat the datetime-local value as IST, convert to UTC ISO string
+  const [datePart, timePart] = localStr.split('T');
+  const [y, mo, d] = datePart.split('-').map(Number);
+  const [h, mi] = timePart.split(':').map(Number);
+  // IST offset: UTC = IST - 5h30m
+  const utc = new Date(Date.UTC(y, mo - 1, d, h - 5, mi - 30));
+  return utc.toISOString();
+};
+
 // ── Shared helpers ─────────────────────────────────────────────────────────
 const getExamStatus = (exam) => {
   const now = new Date();
@@ -1282,7 +1302,7 @@ const ExamsTab = ({ user, exams, loadingExams, onRefresh }) => {
     try {
       const { data } = await api.get(`/exams/${exam._id}`);
       const full = data.data;
-      setExamDetails({ title: full.title, courseCode: full.courseCode, durationMinutes: full.durationMinutes, startTime: full.startTime?.slice(0,16) || '', endTime: full.endTime?.slice(0,16) || '', securitySettings: full.securitySettings });
+      setExamDetails({ title: full.title, courseCode: full.courseCode, durationMinutes: full.durationMinutes, startTime: toISTInputValue(full.startTime), endTime: toISTInputValue(full.endTime), securitySettings: full.securitySettings, description: full.description || '', negativeMarking: full.negativeMarking || false });
       setQuestions(full.questions?.length ? full.questions : [{ ...defaultQuestion }]);
     } catch { setExamDetails({ title: exam.title, courseCode: exam.courseCode, durationMinutes: exam.durationMinutes, startTime: '', endTime: '', securitySettings: exam.securitySettings }); setQuestions([{ ...defaultQuestion }]); }
     setPdfFileName(''); setPdfBase64('');
@@ -1293,7 +1313,7 @@ const ExamsTab = ({ user, exams, loadingExams, onRefresh }) => {
     e.preventDefault();
     setSaving(true); setMsg({ text: '', type: '' });
     try {
-      const payload = { ...examDetails, examinerId: user.id, questions };
+      const payload = { ...examDetails, examinerId: user.id, questions, startTime: fromISTInputToUTC(examDetails.startTime), endTime: fromISTInputToUTC(examDetails.endTime) };
       if (editExam) { await api.put(`/exams/${editExam._id}`, payload); }
       else { await api.post('/exams', payload); }
       setMsg({ text: editExam ? 'Exam updated!' : 'Exam published!', type: 'success' });
@@ -1392,6 +1412,7 @@ const ExamsTab = ({ user, exams, loadingExams, onRefresh }) => {
   const handlePDFUpload = (e) => {
     const file = e.target.files[0];
     if (!file || file.type !== 'application/pdf') { alert('Please upload a PDF file'); return; }
+    if (file.size > 3 * 1024 * 1024) { alert('PDF is too large. Please upload a file under 3MB.\n\nTip: For large documents, copy-paste the relevant text using the "From Text" option instead.'); e.target.value = ''; return; }
     setPdfFileName(file.name);
     const reader = new FileReader();
     reader.onload = (ev) => setPdfBase64(ev.target.result);
@@ -1684,7 +1705,7 @@ const ExamsTab = ({ user, exams, loadingExams, onRefresh }) => {
                             <input type="file" accept=".pdf" onChange={handlePDFUpload}
                               className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700" />
                           )}
-                          <p className="text-[10px] text-purple-500 mt-1">Upload a PDF file (syllabus, notes, etc.) to generate questions</p>
+                          <p className="text-[10px] text-purple-500 mt-1">Upload a PDF file under 3MB. For larger documents, use the "From Text" option and paste the relevant content.</p>
                         </div>
                         <div className="flex flex-wrap gap-3 items-end">
                           <div>
