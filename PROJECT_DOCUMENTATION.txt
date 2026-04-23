@@ -1,0 +1,417 @@
+================================================================================
+                    AUTOMATIC PROCTORING SYSTEM
+                      PROJECT DOCUMENTATION
+================================================================================
+
+PROJECT OVERVIEW
+----------------
+Full-stack web application for conducting secure online exams with AI-powered 
+anti-cheat monitoring. Real-time biometric verification, behavior tracking, 
+and automated proctoring without human supervision.
+
+TECH STACK
+----------
+Frontend:
+- React 19.2.5 + Vite 8.0.9
+- TailwindCSS 4.2.2
+- React Router DOM 7.14.1
+- Zustand 5.0.12 (state management)
+- Axios 1.15.1
+- Lucide React (icons)
+
+AI/ML Libraries:
+- TensorFlow.js 4.22.0
+- Face-API.js (@vladmandic/face-api 1.7.15)
+- BlazeFace (@tensorflow-models/blazeface)
+- COCO-SSD (@tensorflow-models/coco-ssd 2.2.3)
+
+Backend:
+- Node.js + Express 5.2.1
+- MongoDB + Mongoose 9.4.1
+- JWT (jsonwebtoken 9.0.3)
+- Passport.js + Google OAuth 2.0
+- Bcrypt.js 3.0.3
+- Nodemailer 8.0.5
+- Helmet 8.1.0 (security)
+- CORS 2.8.6
+
+================================================================================
+                          CORE FEATURES
+================================================================================
+
+USER ROLES
+----------
+1. Student - Takes exams, views results
+2. Examiner/Teacher - Creates exams, grades, monitors
+3. Admin - Manages users, approves KYC, system oversight
+
+AUTHENTICATION
+--------------
+- Email/Password (bcrypt hashing)
+- Google OAuth 2.0 integration
+- JWT token-based sessions
+- Protected routes with role-based access control
+
+KYC VERIFICATION SYSTEM
+-----------------------
+- Government ID upload
+- Live selfie capture with webcam
+- Face-API.js extracts 128-dimensional face descriptor from ID
+- Real-time biometric matching (Euclidean distance < 0.55)
+- Auto-approval when AI confidence > threshold
+- Manual admin review fallback
+- Prevents duplicate identity registration
+- Students locked out until KYC approved
+
+================================================================================
+                    ANTI-CHEAT FEATURES (CORE)
+================================================================================
+
+1. BIOMETRIC FACE RECOGNITION
+   - Continuous identity verification during exam
+   - Face descriptor matching against KYC baseline
+   - Detects unauthorized person substitution
+   - Real-time confidence scoring (0-100%)
+   - Violation triggered if face mismatch
+
+2. FACE DETECTION & TRACKING
+   - TinyFaceDetector neural network (416x416 input)
+   - Detects face out of frame
+   - Multiple faces detection (collaboration attempt)
+   - 800ms scan interval for performance balance
+
+3. GAZE TRACKING
+   - 68-point facial landmark detection
+   - Calculates yaw ratio (nose-to-jaw distance)
+   - Flags looking away from screen
+   - Detects off-screen assistance
+
+4. OBJECT DETECTION
+   - COCO-SSD model identifies forbidden items
+   - Detects: cell phones, books, laptops
+   - 50%+ confidence threshold
+   - Real-time alerts
+
+5. AUDIO MONITORING
+   - Web Audio API frequency analysis
+   - Background noise detection
+   - Speech recognition (Web Speech API)
+   - Transcribes detected speech
+   - Flags verbal communication
+
+6. BROWSER LOCKDOWN
+   - Tab switch detection (visibilitychange event)
+   - Right-click disabled
+   - Copy/paste blocked
+   - Keyboard shortcuts intercepted (Ctrl+C, Ctrl+V, Alt+Tab)
+   - Context menu prevention
+
+7. VIOLATION TRACKING
+   - Configurable tolerance limit (default: 3-5 violations)
+   - Real-time violation counter
+   - Timestamped telemetry logs
+   - Auto-submission on limit breach
+   - Trust score calculation (100% - violations)
+
+8. FULLSCREEN ENFORCEMENT
+   - Exam must run in fullscreen
+   - Exit fullscreen = violation
+   - Mobile/tablet detection (exams blocked)
+
+9. WEBCAM REQUIREMENT
+   - Mandatory camera access
+   - Pre-exam camera test
+   - Continuous video feed during exam
+   - Mirror display for student awareness
+
+10. SESSION INTEGRITY
+    - Exam start timestamp tracking
+    - Time-based auto-submission
+    - Network disconnect handling
+    - Single-session enforcement
+
+================================================================================
+                        EXAM MANAGEMENT
+================================================================================
+
+EXAM CREATION (Examiner)
+-------------------------
+- Title, course code, description
+- Duration (minutes)
+- Start/end time scheduling
+- Question types: MCQ, Multiple Correct, Short Answer, Coding
+- Image upload for questions
+- Marks allocation per question
+- Negative marking toggle
+- Security settings configuration
+- Student assignment (bulk/individual)
+
+QUESTION TYPES
+--------------
+1. MCQ - Single correct answer, auto-graded
+2. Multiple Correct - Checkbox selection, auto-graded
+3. Short Answer - Text input, manual grading
+4. Coding - Code editor, manual grading
+
+EXAM FLOW
+---------
+1. Pre-exam screen: System check, biometric verification
+2. Identity confirmation (face match required to start)
+3. Active exam: Questions, timer, live monitoring
+4. Auto-submit on time expiry or violation limit
+5. Results screen: Provisional score, trust score
+
+GRADING SYSTEM
+--------------
+- Auto-grading for MCQ/Multiple Correct
+- Manual grading interface for subjective questions
+- Trust score (100% - violation penalty)
+- Status: Passed, Failed, Terminated for Cheating
+- Detailed violation logs attached to results
+
+================================================================================
+                        DASHBOARD FEATURES
+================================================================================
+
+STUDENT DASHBOARD
+-----------------
+- Exam schedule (upcoming, live, completed)
+- KYC status banner
+- Results transcript with trust scores
+- Notifications system
+- Support ticket creation
+- Profile management
+- Password change
+
+EXAMINER DASHBOARD
+------------------
+- Exam creation wizard with image cropping
+- Student management
+- Bulk student assignment
+- Results overview with filtering
+- Manual grading interface
+- Violation log review
+- Analytics (avg scores, completion rates)
+
+ADMIN DASHBOARD
+---------------
+- User management (CRUD)
+- KYC approval/rejection workflow
+- Side-by-side ID vs Selfie comparison
+- System-wide analytics
+- Support ticket management
+- Notification broadcasting
+
+================================================================================
+                      SECURITY MEASURES
+================================================================================
+
+- Helmet.js HTTP headers protection
+- CORS configuration
+- JWT token expiration
+- Password hashing (bcrypt, 10 rounds)
+- Input validation & sanitization
+- MongoDB injection prevention
+- Rate limiting (planned)
+- HTTPS enforcement (production)
+- Environment variable secrets (.env)
+
+================================================================================
+                        DATABASE MODELS
+================================================================================
+
+User Schema
+-----------
+- name, email, password (hashed)
+- role: student/examiner/admin
+- kyc: { status, idImage, faceImage, idDescriptor, verifiedAt }
+- notifications array
+- timestamps
+
+Exam Schema
+-----------
+- title, courseCode, description
+- examinerId (ref: User)
+- durationMinutes, startTime, endTime
+- securitySettings: { requireWebcam, requireMic, strictBrowserLock, toleranceLimit }
+- assignedStudents array
+- questions array (embedded)
+- status: draft/published/completed
+
+Result Schema
+-------------
+- studentId, examId (refs)
+- score, totalMarks, trustScore
+- violations array: { reason, timestamp }
+- answers (mixed type)
+- status: completed/terminated_for_cheating/pending_review/graded/passed/failed
+- timeTaken, submittedAt
+- manualGrades (for subjective questions)
+
+Ticket Schema
+-------------
+- studentId (ref)
+- subject, message, category
+- status: open/in_progress/resolved
+- replies array
+- timestamps
+
+================================================================================
+                        API ENDPOINTS
+================================================================================
+
+Auth Routes
+-----------
+POST /auth/register - User registration
+POST /auth/login - Email/password login
+GET /auth/google - Google OAuth initiation
+GET /auth/google/callback - OAuth callback
+POST /auth/kyc - KYC submission
+GET /auth/me - Get current user
+PUT /auth/update-password - Password change
+GET /auth/notifications/:id/read - Mark notification read
+PUT /auth/notifications/read-all - Mark all read
+DELETE /auth/notifications/:id - Delete notification
+
+Exam Routes
+-----------
+GET /exams - List exams (filtered by student/examiner)
+GET /exams/:id - Get single exam
+POST /exams - Create exam (examiner)
+PUT /exams/:id - Update exam
+DELETE /exams/:id - Delete exam
+GET /exams/examiner/:id - Exams by examiner
+
+Result Routes
+-------------
+GET /results - List results (filtered)
+GET /results/student - Student's own results
+POST /results - Submit exam result
+PUT /results/:id/grade - Manual grading
+
+Ticket Routes
+-------------
+GET /tickets/student/:id - Student's tickets
+POST /tickets - Create ticket
+PUT /tickets/:id - Update ticket status
+POST /tickets/:id/reply - Add reply
+
+Admin Routes (planned)
+----------------------
+GET /admin/users - List all users
+PUT /admin/kyc/:id/approve - Approve KYC
+PUT /admin/kyc/:id/reject - Reject KYC
+
+================================================================================
+                      DEPLOYMENT NOTES
+================================================================================
+
+Environment Variables Required
+-------------------------------
+Frontend (.env):
+- VITE_API_URL - Backend API URL
+- VITE_GOOGLE_CLIENT_ID - Google OAuth client ID
+
+Backend (.env):
+- MONGO_URI - MongoDB connection string
+- JWT_SECRET - JWT signing secret
+- GOOGLE_CLIENT_ID - OAuth client ID
+- GOOGLE_CLIENT_SECRET - OAuth secret
+- GOOGLE_CALLBACK_URL - OAuth redirect URL
+- EMAIL_USER - SMTP email
+- EMAIL_PASS - SMTP password
+- FRONTEND_URL - CORS origin
+
+Production Checklist
+--------------------
+- MongoDB Atlas cluster setup
+- Google Cloud OAuth credentials
+- SMTP email service (Gmail/SendGrid)
+- HTTPS certificate (Let's Encrypt)
+- Face-API models in /public/models/
+- Environment variables configured
+- CORS whitelist updated
+- Rate limiting enabled
+- Error logging (Sentry/LogRocket)
+
+================================================================================
+                        FILE STRUCTURE
+================================================================================
+
+Frontend (src/)
+---------------
+- pages/ - Main route components
+  - Home.jsx - Landing page
+  - StudentDashboard.jsx - Student portal
+  - ExaminerDashboard.jsx - Teacher portal
+  - AdminDashboard.jsx - Admin panel
+  - ActiveExam.jsx - Live exam interface
+  - KycVerification.jsx - Identity verification
+  - AuthCallback.jsx - OAuth handler
+
+- hooks/
+  - useAntiCheat.js - Browser lockdown logic
+  - useBiometrics.js - Face recognition engine
+
+- components/
+  - common/ - Shared components
+  - layout/ - Navbar, Footer
+
+- services/
+  - api.js - Axios instance with interceptors
+
+Backend (proctoring-backend/)
+------------------------------
+- models/ - Mongoose schemas
+- controllers/ - Business logic
+- routes/ - Express routes
+- middleware/ - Auth, validation
+- config/ - Passport OAuth config
+- utils/ - Email sender
+
+================================================================================
+                      KNOWN LIMITATIONS
+================================================================================
+
+- Mobile/tablet exams blocked (anti-cheat requires desktop)
+- Browser compatibility: Chrome/Edge recommended (Web Speech API)
+- Webcam required (no offline mode)
+- Face-API models ~6MB (initial load time)
+- Single monitor recommended (multi-monitor detection not implemented)
+- No screen recording (planned feature)
+- No eye-tracking (requires specialized hardware)
+
+================================================================================
+                      FUTURE ENHANCEMENTS
+================================================================================
+
+- Screen recording with playback
+- Advanced gaze tracking (eye movement)
+- Multi-monitor detection
+- Mobile app with stricter lockdown
+- AI-powered answer plagiarism detection
+- Live proctor dashboard (real-time monitoring)
+- Exam analytics dashboard
+- Question bank management
+- Randomized question order
+- Adaptive testing (difficulty adjustment)
+- Integration with LMS (Moodle, Canvas)
+
+================================================================================
+                          CREDITS
+================================================================================
+
+AI Models:
+- Face-API.js by Vladimir Mandic
+- TensorFlow.js by Google
+- COCO-SSD by TensorFlow team
+
+Libraries:
+- React team
+- Vite team
+- TailwindCSS team
+- MongoDB team
+
+================================================================================
+                        END OF DOCUMENTATION
+================================================================================
