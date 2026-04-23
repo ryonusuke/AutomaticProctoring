@@ -23,10 +23,14 @@ router.post('/reset-password', resetPassword);
 router.post('/kyc', submitKyc);
 
 // Google OAuth
-router.get('/google', passport.authenticate('google', { 
-  scope: ['email', 'profile'],
-  session: false
-}));
+router.get('/google', (req, res, next) => {
+  const role = ['student', 'examiner'].includes(req.query.role) ? req.query.role : 'student';
+  passport.authenticate('google', {
+    scope: ['email', 'profile'],
+    session: false,
+    state: role,
+  })(req, res, next);
+});
 
 router.get('/google/callback',
   passport.authenticate('google', { 

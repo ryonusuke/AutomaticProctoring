@@ -233,26 +233,31 @@ exports.resetPassword = async (req, res) => {
 exports.googleAuthCallback = async (req, res) => {
   try {
     console.log('[GOOGLE CALLBACK CONTROLLER] Processing user:', req.user?.emails?.[0]?.value);
-    
+
     const { id, displayName, emails } = req.user;
     const email = emails[0].value;
+    // role passed via state param (defaults to 'student')
+    const requestedRole = ['student', 'examiner'].includes(req.query.state) ? req.query.state : 'student';
 
     let user = await User.findOne({ email });
 
     if (!user) {
+      // New user — create with the role they selected
       user = await User.create({
         name: displayName,
         email,
         googleId: id,
         isEmailVerified: true,
-        role: 'student',
+        role: requestedRole,
       });
-      console.log('[GOOGLE AUTH] Created new user:', user._id);
-    } else if (!user.googleId) {
-      user.googleId = id;
-      user.isEmailVerified = true;
-      await user.save({ validateBeforeSave: false });
-      console.log('[GOOGLE AUTH] Updated existing user:', user._id);
+      console.log('[GOOGLE AUTH] Created new user:', user._id, 'role:', requestedRole);
+    } else {
+      // Existing user — link googleId if not already, preserve their role and KYC
+      let changed = false;
+      if (!user.googleId) { user.googleId = id; changed = true; }
+      if (!user.isEmailVerified) { user.isEmailVerified = true; changed = true; }
+      if (changed) await user.save({ validateBeforeSave: false });
+      console.log('[GOOGLE AUTH] Existing user:', user._id, 'role:', user.role);
     }
 
     const token = generateToken(user._id, '1d');

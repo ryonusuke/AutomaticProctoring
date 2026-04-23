@@ -381,7 +381,7 @@ const AuthPopup = ({ isOpen, onClose, initialView = 'login' }) => {
                 <span className="text-xs text-gray-400 font-medium">OR</span>
                 <div className="flex-1 h-px bg-gray-200" />
               </div>
-              <a href={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')}/api/auth/google`}
+              <a href={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api$/, '')}/api/auth/google?role=${formData.role}`}
                 className="w-full flex items-center justify-center gap-3 py-2.5 px-4 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all">
                 <GoogleIcon />
                 Continue with Google
