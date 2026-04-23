@@ -329,15 +329,15 @@ const ResultsTab = ({ user, results, exams, onRefresh }) => {
     (filterExam === 'all' || r.examId?._id === filterExam)
   );
 
-  const exportCSV = () => {
-    const rows = [['Student', 'Email', 'Exam', 'Score', 'Total', 'Trust Score', 'Status', 'Date']];
-    filtered.forEach(r => {
-      rows.push([r.studentId?.name || 'Unknown', r.studentId?.email || '', r.examId?.title || 'Unknown', r.score, r.totalMarks, `${r.trustScore}%`, r.status, new Date(r.createdAt).toLocaleDateString()]);
+  const exportCSV = (examTitle, examResults) => {
+    const rows = [['Student', 'Email', 'Score', 'Total', 'Trust Score', 'Status', 'Date']];
+    examResults.forEach(r => {
+      rows.push([r.studentId?.name || 'Unknown', r.studentId?.email || '', r.score, r.totalMarks, `${r.trustScore}%`, r.status, new Date(r.createdAt).toLocaleDateString()]);
     });
     const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'results.csv'; a.click();
+    const a = document.createElement('a'); a.href = url; a.download = `${examTitle.replace(/[^a-z0-9]/gi, '_')}_results.csv`; a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -380,12 +380,7 @@ const ResultsTab = ({ user, results, exams, onRefresh }) => {
             <option value="all">All Exams</option>
             {exams.map(e => <option key={e._id} value={e._id}>{e.title}</option>)}
           </select>
-          {filtered.length > 0 && (
-            <button onClick={exportCSV}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-bold text-green-700 border border-green-200 rounded-xl hover:bg-green-50 transition-colors">
-              ↓ Export CSV
-            </button>
-          )}
+
         </div>
         {filtered.length === 0 ? (
           <div className="text-center py-16 text-gray-400"><BarChart2 className="h-10 w-10 mx-auto mb-3 text-gray-200" /><p>No results yet.</p></div>
@@ -395,12 +390,18 @@ const ResultsTab = ({ user, results, exams, onRefresh }) => {
               const exam = examResults[0]?.examId;
               return (
                 <div key={examId} className="p-5">
-                  <div className="flex items-center gap-3 mb-3">
-                    <FileText className="h-5 w-5 text-blue-600" />
-                    <div>
-                      <h3 className="font-bold text-gray-900">{exam?.title || 'Unknown Exam'}</h3>
-                      <p className="text-xs text-gray-400">{exam?.courseCode} • {examResults.length} submission(s)</p>
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-5 w-5 text-blue-600" />
+                      <div>
+                        <h3 className="font-bold text-gray-900">{exam?.title || 'Unknown Exam'}</h3>
+                        <p className="text-xs text-gray-400">{exam?.courseCode} • {examResults.length} submission(s)</p>
+                      </div>
                     </div>
+                    <button onClick={() => exportCSV(exam?.title || 'exam', examResults)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-green-700 border border-green-200 rounded-lg hover:bg-green-50 transition-colors shrink-0">
+                      ↓ Export CSV
+                    </button>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">

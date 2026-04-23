@@ -209,6 +209,27 @@ const ActiveExam = () => {
   // ==========================================
   // 3. RAPID VIOLATION HANDLER 
   // ==========================================
+  const playBuzzer = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const gainNode = ctx.createGain();
+      gainNode.connect(ctx.destination);
+      // Two sharp descending beeps like a security alarm
+      [0, 0.25].forEach((startOffset) => {
+        const osc = ctx.createOscillator();
+        osc.connect(gainNode);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1200, ctx.currentTime + startOffset);
+        osc.frequency.linearRampToValueAtTime(800, ctx.currentTime + startOffset + 0.18);
+        gainNode.gain.setValueAtTime(0, ctx.currentTime + startOffset);
+        gainNode.gain.linearRampToValueAtTime(0.6, ctx.currentTime + startOffset + 0.02);
+        gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + startOffset + 0.2);
+        osc.start(ctx.currentTime + startOffset);
+        osc.stop(ctx.currentTime + startOffset + 0.2);
+      });
+    } catch (e) {}
+  }, []);
+
   const handleViolation = useCallback((message) => {
     if (!isExamActive.current) return;
 
@@ -217,6 +238,8 @@ const ActiveExam = () => {
     if (now - lastLogTimeRef.current < 1500) return; 
     lastLogTimeRef.current = now;
     
+    playBuzzer();
+
     violationCountRef.current += 1;
     setViolationsUi(violationCountRef.current);
     
@@ -231,7 +254,7 @@ const ActiveExam = () => {
     if (violationCountRef.current >= limit) {
         if (submitFnRef.current) submitFnRef.current("Auto-Terminated: Excessive Violations.");
     }
-  }, []);
+  }, [playBuzzer]);
 
   // ==========================================
   // 4. BROWSER & SPEECH LOCKDOWN
