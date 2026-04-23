@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, Users, Settings, LogOut, Plus,
   Bell, Search, ChevronDown, ShieldAlert, BookOpen, BarChart2,
@@ -36,11 +36,18 @@ const StatusBadge = ({ status }) => {
 const NotificationBell = ({ user }) => {
   const [open, setOpen] = useState(false);
   const [notifs, setNotifs] = useState([]);
+  const ref = useRef(null);
 
   useEffect(() => {
     api.get('/auth/me').then(({ data }) => {
       if (data.success) setNotifs(data.user.notifications || []);
     }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
   const unread = notifs.filter(n => !n.isRead).length;
@@ -56,6 +63,11 @@ const NotificationBell = ({ user }) => {
     api.put('/auth/notifications/read-all').catch(() => {});
   };
 
+  const clearAll = () => {
+    setNotifs([]);
+    api.delete('/auth/notifications/clear-all').catch(() => {});
+  };
+
   const deleteOne = (e, notif) => {
     e.stopPropagation();
     setNotifs(p => p.filter(n => n._id !== notif._id));
@@ -63,7 +75,7 @@ const NotificationBell = ({ user }) => {
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={ref}>
       <button onClick={() => setOpen(p => !p)}
         className="relative p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors">
         <Bell className="h-5 w-5" />
@@ -77,12 +89,14 @@ const NotificationBell = ({ user }) => {
         <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
             <span className="font-bold text-gray-900 text-sm">Notifications</span>
-            <button onClick={markAll}
-              className="text-xs text-blue-600 hover:underline">Mark all read</button>
+            <div className="flex items-center gap-3">
+              {unread > 0 && <button onClick={markAll} className="text-xs text-blue-600 hover:underline">Mark all read</button>}
+              {notifs.length > 0 && <button onClick={clearAll} className="text-xs text-red-500 hover:underline">Clear all</button>}
+            </div>
           </div>
           <div className="max-h-72 overflow-y-auto divide-y divide-gray-50">
             {notifs.length === 0 && <p className="text-center text-gray-400 text-xs py-6">No notifications.</p>}
-            {notifs.map(n => (
+            {[...notifs].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map(n => (
               <div key={n._id} onClick={() => markOne(n)}
                 className={`px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors flex items-start gap-3 ${!n.isRead ? 'bg-blue-50/50' : ''}`}>
                 <div className="flex-1 min-w-0">
@@ -124,7 +138,7 @@ const ProfileDropdown = ({ user, onNavigate, navigate }) => {
             className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
             <Settings className="h-4 w-4" /> Settings
           </button>
-          <button onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); navigate('/'); }}
+          <button onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); navigate('/', { replace: true }); }}
             className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-gray-100">
             <LogOut className="h-4 w-4" /> Sign Out
           </button>
@@ -1095,9 +1109,17 @@ const ExamResultRow = ({ r, exam, onGraded }) => {
                         </div>
                       )}
                       {q.type === 'short_answer' && (
-                        <div className="space-y-1">
-                          <p className="text-xs text-gray-500">Response: <span className="text-gray-800 font-medium">{ans || 'Not answered'}</span></p>
-                          {q.modelAnswer && <p className="text-xs text-gray-400">Model: {q.modelAnswer}</p>}
+                        <div className="space-y-1.5">
+                          <div className="p-2 bg-white border border-gray-200 rounded-lg">
+                            <p className="text-[10px] font-bold text-gray-400 mb-0.5">STUDENT ANSWER</p>
+                            <p className="text-xs text-gray-800">{ans || <span className="italic text-gray-400">Not answered</span>}</p>
+                          </div>
+                          {q.modelAnswer && (
+                            <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                              <p className="text-[10px] font-bold text-blue-500 mb-0.5">MODEL ANSWER</p>
+                              <p className="text-xs text-blue-800">{q.modelAnswer}</p>
+                            </div>
+                          )}
                           {r.manualGrades?.[i] !== undefined && <p className="text-xs text-green-600 font-bold">Graded: {r.manualGrades[i]} / {q.marks} marks</p>}
                         </div>
                       )}
@@ -1119,24 +1141,66 @@ const ExamResultRow = ({ r, exam, onGraded }) => {
                 <PenLine className="h-3.5 w-3.5" /> Manual Grading — All Questions
               </div>
               <div className="divide-y divide-orange-100">
-                {allQs.map(q => (
-                  <div key={q.idx} className="px-4 py-3 flex items-start gap-4">
-                    <div className="flex-1">
-                      <p className="text-xs font-semibold text-gray-700">Q{q.idx+1} ({q.type === 'mcq' ? 'MCQ' : q.type === 'multiple_correct' ? 'Multi-Correct' : 'Short Answer'}): {q.questionText}</p>
-                      <p className="text-xs text-gray-500 mt-1">Student: <span className="text-gray-800">{r.answers?.[q.idx] !== undefined ? (Array.isArray(r.answers?.[q.idx]) ? r.answers[q.idx].map(a => q.options?.[a]).join(', ') : q.options?.[r.answers[q.idx]] || r.answers[q.idx]) : 'Not answered'}</span></p>
-                      {q.modelAnswer && <p className="text-xs text-gray-400 mt-0.5">Model: {q.modelAnswer}</p>}
-                      {q.type === 'mcq' && <p className="text-xs text-blue-500 mt-0.5">Correct: {q.options?.[q.correctOptionIndex]}</p>}
-                      {q.type === 'multiple_correct' && <p className="text-xs text-blue-500 mt-0.5">Correct: {q.correctOptionIndices?.map(i => q.options?.[i]).join(', ')}</p>}
+                {allQs.map(q => {
+                  const ans = r.answers?.[q.idx];
+                  const optLabels = ['A','B','C','D','E','F'];
+                  return (
+                    <div key={q.idx} className="px-4 py-4 space-y-2">
+                      <div className="flex items-start justify-between gap-4">
+                        <p className="text-xs font-semibold text-gray-700 flex-1">
+                          Q{q.idx+1} <span className="text-gray-400 font-normal">({q.type === 'mcq' ? 'MCQ' : q.type === 'multiple_correct' ? 'Multi-Correct' : 'Short Answer'})</span>: {q.questionText}
+                        </p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs text-gray-500">Marks (max {q.marks}):</span>
+                          <input type="number" min={0} max={q.marks} step={0.5}
+                            value={grades[q.idx] ?? (r.manualGrades?.[q.idx] ?? '')}
+                            onChange={e => setGrades(p => ({ ...p, [q.idx]: +e.target.value }))}
+                            className="w-16 px-2 py-1 border border-orange-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-400 text-center" />
+                        </div>
+                      </div>
+
+                      {/* MCQ / Multiple correct: colored option rows */}
+                      {(q.type === 'mcq' || q.type === 'multiple_correct') && q.options?.length > 0 && (
+                        <div className="space-y-1">
+                          {q.options.map((opt, oi) => {
+                            const isCorrectOpt = q.type === 'mcq' ? oi === q.correctOptionIndex : (q.correctOptionIndices || []).includes(oi);
+                            const isStudentPick = q.type === 'mcq' ? ans === oi : (Array.isArray(ans) && ans.includes(oi));
+                            let rowClass = 'border-gray-200 bg-white text-gray-700';
+                            if (isCorrectOpt && isStudentPick) rowClass = 'border-green-400 bg-green-50 text-green-800';
+                            else if (isCorrectOpt) rowClass = 'border-green-300 bg-green-50/60 text-green-700';
+                            else if (isStudentPick) rowClass = 'border-red-300 bg-red-50 text-red-700';
+                            return (
+                              <div key={oi} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs ${rowClass}`}>
+                                <span className="font-bold w-4 shrink-0">{optLabels[oi]}.</span>
+                                <span className="flex-1">{opt}</span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {isStudentPick && <span className="font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">Student</span>}
+                                  {isCorrectOpt && <span className="font-bold px-1.5 py-0.5 rounded bg-green-200 text-green-800">✓ Correct</span>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Short answer */}
+                      {q.type === 'short_answer' && (
+                        <div className="space-y-1.5">
+                          <div className="p-2.5 bg-white border border-gray-200 rounded-lg">
+                            <p className="text-[10px] font-bold text-gray-400 mb-0.5">STUDENT ANSWER</p>
+                            <p className="text-xs text-gray-800">{ans || <span className="italic text-gray-400">Not answered</span>}</p>
+                          </div>
+                          {q.modelAnswer && (
+                            <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-lg">
+                              <p className="text-[10px] font-bold text-blue-500 mb-0.5">MODEL ANSWER</p>
+                              <p className="text-xs text-blue-800">{q.modelAnswer}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs text-gray-500">Marks (max {q.marks}):</span>
-                      <input type="number" min={0} max={q.marks} step={0.5}
-                        value={grades[q.idx] ?? (r.manualGrades?.[q.idx] ?? '')}
-                        onChange={e => setGrades(p => ({ ...p, [q.idx]: +e.target.value }))}
-                        className="w-16 px-2 py-1 border border-orange-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-400 text-center" />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="px-4 py-3 bg-orange-50 flex items-center justify-between border-t border-orange-200">
                 {gradeMsg && <span className={`text-xs font-bold ${gradeMsg.includes('saved') ? 'text-green-600' : 'text-red-600'}`}>{gradeMsg}</span>}
@@ -1189,17 +1253,38 @@ const ExamsTab = ({ user, exams, loadingExams, onRefresh }) => {
   const [completedCrop, setCompletedCrop] = useState(null);
   const imgRef = useRef(null);
   const [pdfUploading, setPdfUploading] = useState(false);
+  const [pdfFileName, setPdfFileName] = useState('');
+  const [pdfBase64, setPdfBase64] = useState('');
 
-  const openCreate = () => { setEditExam(null); setExamDetails(defaultExam); setQuestions([{ ...defaultQuestion }]); setMsg({ text: '', type: '' }); setShowModal(true); };
+  // Normalize AI-generated questions to always have exactly 4 options
+  const normalizeAIQuestion = (q) => {
+    let opts = q.options?.length ? [...q.options] : ['', '', '', ''];
+    while (opts.length < 4) opts.push('');
+    if (opts.length > 4) opts = opts.slice(0, 4);
+    return {
+      questionText: q.questionText || '',
+      type: q.type || 'mcq',
+      options: opts,
+      correctOptionIndex: q.correctOptionIndex ?? 0,
+      correctOptionIndices: (q.correctOptionIndices || []).filter(i => i < 4),
+      modelAnswer: q.modelAnswer || '',
+      marks: q.marks || 1,
+      negativeMark: q.negativeMark || 0,
+    };
+  };
+
+  const openCreate = () => { setEditExam(null); setExamDetails(defaultExam); setQuestions([{ ...defaultQuestion }]); setMsg({ text: '', type: '' }); setPdfFileName(''); setPdfBase64(''); setShowModal(true); };
   const openEdit = async (exam) => {
     setEditExam(exam);
     setMsg({ text: '', type: '' });
+    setPdfFileName(''); setPdfBase64('');
     try {
       const { data } = await api.get(`/exams/${exam._id}`);
       const full = data.data;
       setExamDetails({ title: full.title, courseCode: full.courseCode, durationMinutes: full.durationMinutes, startTime: full.startTime?.slice(0,16) || '', endTime: full.endTime?.slice(0,16) || '', securitySettings: full.securitySettings });
       setQuestions(full.questions?.length ? full.questions : [{ ...defaultQuestion }]);
     } catch { setExamDetails({ title: exam.title, courseCode: exam.courseCode, durationMinutes: exam.durationMinutes, startTime: '', endTime: '', securitySettings: exam.securitySettings }); setQuestions([{ ...defaultQuestion }]); }
+    setPdfFileName(''); setPdfBase64('');
     setShowModal(true);
   };
 
@@ -1244,8 +1329,9 @@ const ExamsTab = ({ user, exams, loadingExams, onRefresh }) => {
         ? { text: aiDocument, count: aiCount, difficulty: aiDiff, type: aiType }
         : { topic: aiTopic, count: aiCount, difficulty: aiDiff, type: aiType };
       const { data } = await api.post(endpoint, payload);
-      setQuestions(prev => [...prev.filter(q => q.questionText), ...data.data]);
-      setShowAI(false); setAiTopic(''); setAiDocument('');
+      const normalized = data.data.map(normalizeAIQuestion);
+      setQuestions(prev => [...prev.filter(q => q.questionText), ...normalized]);
+      // Keep AI panel open and inputs intact so teacher can generate more
     } catch (err) { alert(err.response?.data?.message || 'AI generation failed.'); }
     finally { setAiLoading(false); }
   };
@@ -1276,76 +1362,51 @@ const ExamsTab = ({ user, exams, loadingExams, onRefresh }) => {
     const scaleY = image.naturalHeight / image.height;
     const ctx = canvas.getContext('2d');
 
-    // Use current crop state if completedCrop is not set
     const activeCrop = completedCrop || crop;
-    if (!activeCrop || !activeCrop.width || !activeCrop.height) {
+    if (!activeCrop?.width || !activeCrop?.height) {
       alert('Please select a crop area first');
       return;
     }
 
-    // Convert percentage to pixels if needed
     const pixelCrop = {
       x: activeCrop.unit === '%' ? (activeCrop.x / 100) * image.width : activeCrop.x,
       y: activeCrop.unit === '%' ? (activeCrop.y / 100) * image.height : activeCrop.y,
       width: activeCrop.unit === '%' ? (activeCrop.width / 100) * image.width : activeCrop.width,
-      height: activeCrop.unit === '%' ? (activeCrop.height / 100) * image.height : activeCrop.height
+      height: activeCrop.unit === '%' ? (activeCrop.height / 100) * image.height : activeCrop.height,
     };
 
     canvas.width = pixelCrop.width * scaleX;
     canvas.height = pixelCrop.height * scaleY;
-
-    ctx.drawImage(
-      image,
-      pixelCrop.x * scaleX,
-      pixelCrop.y * scaleY,
-      pixelCrop.width * scaleX,
-      pixelCrop.height * scaleY,
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
+    ctx.drawImage(image, pixelCrop.x * scaleX, pixelCrop.y * scaleY, pixelCrop.width * scaleX, pixelCrop.height * scaleY, 0, 0, canvas.width, canvas.height);
 
     const cropped = canvas.toDataURL('image/jpeg', 0.7);
-    // Warn if image is too large (>500KB base64)
     if (cropped.length > 500000) {
-      alert('Image is too large after cropping. Please crop a smaller area or use a smaller image.');
+      alert('Image is too large. Please crop a smaller area.');
       return;
     }
-    setQuestions(p => {
-      const u = [...p];
-      u[cropModal.questionIdx] = { ...u[cropModal.questionIdx], image: cropped };
-      return u;
-    });
+    setQuestions(p => { const u = [...p]; u[cropModal.questionIdx] = { ...u[cropModal.questionIdx], image: cropped }; return u; });
     setCropModal(null);
   }, [completedCrop, crop, cropModal]);
 
-  const handlePDFUpload = async (e) => {
+  const handlePDFUpload = (e) => {
     const file = e.target.files[0];
-    if (!file || file.type !== 'application/pdf') {
-      alert('Please upload a PDF file');
-      return;
-    }
-    setPdfUploading(true);
+    if (!file || file.type !== 'application/pdf') { alert('Please upload a PDF file'); return; }
+    setPdfFileName(file.name);
     const reader = new FileReader();
-    reader.onload = async (ev) => {
-      try {
-        const { data } = await api.post('/exams/ai/generate-from-pdf', {
-          pdfBase64: ev.target.result,
-          count: aiCount,
-          difficulty: aiDiff,
-          type: aiType
-        });
-        setQuestions(prev => [...prev.filter(q => q.questionText), ...data.data]);
-        setShowAI(false);
-      } catch (err) {
-        alert(err.response?.data?.message || 'PDF generation failed.');
-      } finally {
-        setPdfUploading(false);
-      }
-    };
+    reader.onload = (ev) => setPdfBase64(ev.target.result);
     reader.readAsDataURL(file);
     e.target.value = '';
+  };
+
+  const handlePDFGenerate = async () => {
+    if (!pdfBase64) return;
+    setPdfUploading(true);
+    try {
+      const { data } = await api.post('/exams/ai/generate-from-pdf', { pdfBase64, count: aiCount, difficulty: aiDiff, type: aiType });
+      setQuestions(prev => [...prev.filter(q => q.questionText), ...data.data.map(normalizeAIQuestion)]);
+    } catch (err) {
+      alert(err.response?.data?.message || 'PDF generation failed.');
+    } finally { setPdfUploading(false); }
   };
 
   const handleViewResults = async (exam) => {
@@ -1611,8 +1672,17 @@ const ExamsTab = ({ user, exams, loadingExams, onRefresh }) => {
                       <div className="space-y-3">
                         <div>
                           <label className="block text-xs font-bold text-purple-700 mb-1">Upload PDF Document</label>
-                          <input type="file" accept=".pdf" onChange={handlePDFUpload}
-                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700" />
+                          {pdfFileName ? (
+                            <div className="flex items-center gap-2 px-3 py-2 border border-purple-200 rounded-lg bg-white">
+                              <FileUp className="h-4 w-4 text-purple-500 shrink-0" />
+                              <span className="text-sm text-gray-700 flex-1 truncate">{pdfFileName}</span>
+                              <button type="button" onClick={() => { setPdfFileName(''); setPdfBase64(''); }}
+                                className="text-red-500 hover:text-red-700 shrink-0"><X className="h-4 w-4" /></button>
+                            </div>
+                          ) : (
+                            <input type="file" accept=".pdf" onChange={handlePDFUpload}
+                              className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-purple-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700" />
+                          )}
                           <p className="text-[10px] text-purple-500 mt-1">Upload a PDF file (syllabus, notes, etc.) to generate questions</p>
                         </div>
                         <div className="flex flex-wrap gap-3 items-end">
@@ -1638,11 +1708,10 @@ const ExamsTab = ({ user, exams, loadingExams, onRefresh }) => {
                               <option value="hard">Hard</option>
                             </select>
                           </div>
-                          {pdfUploading && (
-                            <div className="flex items-center gap-2 text-purple-600 text-sm">
-                              <Loader2 className="h-4 w-4 animate-spin" /> Processing PDF...
-                            </div>
-                          )}
+                          <button type="button" onClick={handlePDFGenerate} disabled={pdfUploading || !pdfBase64}
+                            className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-purple-700 disabled:opacity-60 transition-colors">
+                            {pdfUploading ? <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</> : <><FileUp className="h-4 w-4" /> Generate from PDF</>}
+                          </button>
                         </div>
                       </div>
                     )}
@@ -1840,8 +1909,8 @@ const ExamsTab = ({ user, exams, loadingExams, onRefresh }) => {
                   style={{ maxWidth: '100%' }}
                 >
                   <img
+                    ref={imgRef}
                     src={cropModal.src}
-                    onLoad={onImageLoad}
                     style={{ maxHeight: '500px', maxWidth: '100%', display: 'block' }}
                     alt="Crop preview"
                   />
@@ -1871,10 +1940,15 @@ const ExamsTab = ({ user, exams, loadingExams, onRefresh }) => {
 };
 
 // ── Main Component (layout only for now) ──────────────────────────────────
+const EXAMINER_TABS = ['dashboard', 'exams', 'students', 'results', 'help', 'settings'];
+
 const ExaminerDashboard = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const tabFromUrl = searchParams.get('tab');
+  const activeTab = EXAMINER_TABS.includes(tabFromUrl) ? tabFromUrl : 'dashboard';
+  const setActiveTab = (tab) => { setSearchParams(tab === 'dashboard' ? {} : { tab }, { replace: false }); setSidebarOpen(false); };
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [exams, setExams] = useState([]);
   const [results, setResults] = useState([]);
@@ -1882,9 +1956,9 @@ const ExaminerDashboard = () => {
 
   useEffect(() => {
     const stored = localStorage.getItem('user');
-    if (!stored) return navigate('/');
+    if (!stored) return navigate('/', { replace: true });
     const parsed = JSON.parse(stored);
-    if (parsed.role !== 'examiner') return navigate('/dashboard');
+    if (parsed.role !== 'examiner') return navigate('/dashboard', { replace: true });
     setUser(parsed);
   }, [navigate]);
 
@@ -1932,7 +2006,7 @@ const ExaminerDashboard = () => {
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-3 mb-3 mt-2">Menu</p>
           {navItems.map(item => (
-            <button key={item.id} onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
+            <button key={item.id} onClick={() => setActiveTab(item.id)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-colors
                 ${activeTab === item.id ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
               <item.icon className="h-4 w-4" /> {item.label}
@@ -1940,7 +2014,7 @@ const ExaminerDashboard = () => {
           ))}
         </nav>
         <div className="p-4 border-t border-gray-800">
-          <button onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); navigate('/'); }}
+          <button onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); navigate('/', { replace: true }); }}
             className="w-full flex items-center gap-3 px-3 py-2.5 text-red-400 hover:bg-red-500/10 rounded-xl font-medium text-sm transition-colors">
             <LogOut className="h-4 w-4" /> Sign Out
           </button>
@@ -1963,7 +2037,7 @@ const ExaminerDashboard = () => {
           </div>
           <div className="ml-auto flex items-center gap-2">
             <NotificationBell user={user} />
-            <ProfileDropdown user={user} onNavigate={setActiveTab} navigate={navigate} />
+            <ProfileDropdown user={user} onNavigate={(tab) => setActiveTab(tab)} navigate={navigate} />
           </div>
         </header>
 

@@ -1,5 +1,17 @@
 const Result = require('../models/Result');
 const Exam = require('../models/Exam');
+const User = require('../models/User');
+
+const pushNotification = async (userId, type, title, message) => {
+  await User.findByIdAndUpdate(userId, {
+    $push: {
+      notifications: {
+        $each: [{ type, title, message, isRead: false, date: new Date() }],
+        $position: 0
+      }
+    }
+  });
+};
 
 // @desc    Get all exam results for a specific examiner
 // @route   GET /api/results
@@ -62,6 +74,20 @@ exports.submitResult = async (req, res) => {
       status,
       trustScore
     });
+
+    // Notify the exam's teacher
+    const exam = await Exam.findById(examId).select('title courseCode examinerId');
+    const student = await User.findById(req.user.id).select('name');
+    if (exam?.examinerId) {
+      const violationNote = violations.length > 0 ? ` (${violations.length} violation${violations.length > 1 ? 's' : ''} detected)` : '';
+      const statusLabel = status === 'terminated_for_cheating' ? '⚠️ Terminated' : status === 'pending_review' ? '📝 Pending Review' : `Score: ${score}/${totalMarks}`;
+      await pushNotification(
+        exam.examinerId,
+        violations.length > 0 ? 'alert' : 'info',
+        `Exam Submitted: ${exam.title}`,
+        `${student?.name || 'A student'} submitted "${exam.title}" (${exam.courseCode}). ${statusLabel}${violationNote}.`
+      );
+    }
 
     res.status(201).json({ success: true, data: result });
   } catch (error) {

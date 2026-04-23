@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   LayoutDashboard, BookOpen, BarChart2, Bell, LifeBuoy,
   UserCircle, Settings, LogOut, ShieldAlert, AlertTriangle,
   CheckCircle, Clock, PlayCircle, Lock, Loader2, Menu, X,
   ChevronRight, Camera, Fingerprint, XCircle, Activity
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 
 // ── Device check ──────────────────────────────────────────────────────────
@@ -54,6 +54,11 @@ const NotificationsTab = ({ notifications, setNotifications }) => {
     api.put('/auth/notifications/read-all').catch(() => {});
   };
 
+  const clearAll = async () => {
+    setNotifications([]);
+    api.delete('/auth/notifications/clear-all').catch(() => {});
+  };
+
   const deleteOne = async (e, notif) => {
     e.stopPropagation();
     setNotifications(p => p.filter(n => n._id !== notif._id));
@@ -69,6 +74,9 @@ const NotificationsTab = ({ notifications, setNotifications }) => {
         </div>
         {notifications.some(n => !n.isRead) && (
           <button onClick={markAll} className="text-sm font-bold text-blue-600 hover:underline">Mark all read</button>
+        )}
+        {notifications.length > 0 && (
+          <button onClick={clearAll} className="text-sm font-bold text-red-500 hover:underline">Clear all</button>
         )}
       </div>
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -797,10 +805,14 @@ const DashboardHome = ({ user, exams, results, loading, onNavigate, isMobile }) 
 };
 
 // ── Main Component ─────────────────────────────────────────────────────────
+const VALID_TABS = ['dashboard', 'exams', 'results', 'notifications', 'support', 'profile', 'settings'];
+
 const StudentDashboard = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const tabFromUrl = searchParams.get('tab');
+  const activeTab = VALID_TABS.includes(tabFromUrl) ? tabFromUrl : 'dashboard';
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [exams, setExams] = useState([]);
   const [results, setResults] = useState([]);
@@ -843,10 +855,15 @@ const StudentDashboard = () => {
     } catch (e) { setResults([]); }
   };
 
+  const setActiveTab = (tab) => {
+    setSearchParams(tab === 'dashboard' ? {} : { tab }, { replace: false });
+    setSidebarOpen(false);
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
-    navigate('/');
+    navigate('/', { replace: true });
   };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -886,7 +903,7 @@ const StudentDashboard = () => {
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-3 mb-3 mt-2">Menu</p>
           {navItems.map(item => (
-            <button key={item.id} onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
+            <button key={item.id} onClick={() => setActiveTab(item.id)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-colors
                 ${activeTab === item.id ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
               <item.icon className="h-4 w-4 shrink-0" />
@@ -918,16 +935,82 @@ const StudentDashboard = () => {
           </button>
           <h1 className="font-extrabold text-gray-900 text-lg truncate">{tabTitles[activeTab]}</h1>
           <div className="ml-auto flex items-center gap-3">
-            {/* Bell */}
-            <button onClick={() => setActiveTab('notifications')}
-              className="relative p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors">
-              <Bell className="h-5 w-5" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 h-4 w-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
+            {/* Bell Dropdown */}
+            {(() => {
+              const BellDropdown = () => {
+                const [open, setOpen] = useState(false);
+                const ref = useRef(null);
+                useEffect(() => {
+                  const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+                  document.addEventListener('mousedown', handler);
+                  return () => document.removeEventListener('mousedown', handler);
+                }, []);
+                const markOne = (n) => {
+                  if (n.isRead) return;
+                  setNotifications(p => p.map(x => x._id === n._id ? { ...x, isRead: true } : x));
+                  api.put(`/auth/notifications/${n._id}/read`).catch(() => {});
+                };
+                const markAll = () => {
+                  setNotifications(p => p.map(n => ({ ...n, isRead: true })));
+                  api.put('/auth/notifications/read-all').catch(() => {});
+                };
+                const clearAll = () => {
+                  setNotifications([]);
+                  api.delete('/auth/notifications/clear-all').catch(() => {});
+                };
+                const deleteOne = (e, n) => {
+                  e.stopPropagation();
+                  setNotifications(p => p.filter(x => x._id !== n._id));
+                  api.delete(`/auth/notifications/${n._id}`).catch(() => {});
+                };
+                const iconMap = { alert: '🔴', success: '🟢', info: '🔵', warning: '🟡' };
+                return (
+                  <div className="relative" ref={ref}>
+                    <button onClick={() => setOpen(p => !p)}
+                      className="relative p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors">
+                      <Bell className="h-5 w-5" />
+                      {unreadCount > 0 && (
+                        <span className="absolute top-1 right-1 h-4 w-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </button>
+                    {open && (
+                      <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center">
+                          <span className="font-bold text-gray-900 text-sm">Notifications</span>
+                          <div className="flex items-center gap-3">
+                            {unreadCount > 0 && <button onClick={markAll} className="text-xs text-blue-600 hover:underline">Mark all read</button>}
+                            {notifications.length > 0 && <button onClick={clearAll} className="text-xs text-red-500 hover:underline">Clear all</button>}
+                          </div>
+                        </div>
+                        <div className="max-h-72 overflow-y-auto divide-y divide-gray-50">
+                          {notifications.length === 0 && <p className="text-center text-gray-400 text-xs py-6">No notifications.</p>}
+                          {[...notifications].reverse().map(n => (
+                            <div key={n._id} onClick={() => markOne(n)}
+                              className={`px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors flex items-start gap-3 ${!n.isRead ? 'bg-blue-50/50' : ''}`}>
+                              <span className="text-base shrink-0">{iconMap[n.type] || '🔵'}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-semibold ${!n.isRead ? 'text-gray-900' : 'text-gray-600'}`}>{n.title}</p>
+                                <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{n.message}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {!n.isRead && <span className="h-2 w-2 bg-blue-500 rounded-full" />}
+                                <button onClick={(e) => deleteOne(e, n)}
+                                  className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors">
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              };
+              return <BellDropdown key="bell" />;
+            })()}
             {/* Profile */}
             <button onClick={() => setActiveTab('profile')} className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-gray-100 transition-colors">
               {user?.kyc?.faceImage ? (

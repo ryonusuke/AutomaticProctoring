@@ -65,7 +65,7 @@ const userSchema = new mongoose.Schema({
 
   // --- NEW: INBOX / NOTIFICATION SYSTEM ---
   notifications: [{
-    type: { type: String, enum: ['alert', 'info', 'success'], default: 'info' },
+    type: { type: String, enum: ['alert', 'info', 'success', 'warning'], default: 'info' },
     title: { type: String, required: true },
     message: { type: String, required: true },
     isRead: { type: Boolean, default: false },

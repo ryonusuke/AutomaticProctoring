@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   LayoutDashboard, Users, ShieldCheck, FileText, BarChart2,
   LifeBuoy, Megaphone, Settings, LogOut, ShieldAlert, Search,
@@ -144,10 +144,15 @@ const DashboardHome = ({ students, exams, results, tickets, onNavigate }) => {
 };
 
 // ── Main Component ──────────────────────────────────────────────────────────
+const ADMIN_TABS = ['dashboard','students','kyc','exams','results','tickets','announcements','settings'];
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [admin, setAdmin] = useState(null);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const tabFromUrl = searchParams.get('tab');
+  const activeTab = ADMIN_TABS.includes(tabFromUrl) ? tabFromUrl : 'dashboard';
+  const setActiveTab = (tab) => { setSearchParams(tab === 'dashboard' ? {} : { tab }, { replace: false }); setSidebarOpen(false); };
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [students, setStudents] = useState([]);
   const [exams, setExams] = useState([]);
@@ -157,7 +162,7 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user'));
-    if (!user || user.role !== 'admin') { navigate('/'); return; }
+    if (!user || user.role !== 'admin') { navigate('/', { replace: true }); return; }
     setAdmin(user);
     loadAll();
   }, [navigate]);
@@ -210,7 +215,7 @@ const AdminDashboard = () => {
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-3 mb-3 mt-2">Admin Panel</p>
           {navItems.map(item => (
-            <button key={item.id} onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }}
+            <button key={item.id} onClick={() => setActiveTab(item.id)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-colors
                 ${activeTab === item.id ? 'bg-red-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
               <item.icon className="h-4 w-4 shrink-0" />
@@ -224,7 +229,7 @@ const AdminDashboard = () => {
           ))}
         </nav>
         <div className="p-4 border-t border-gray-800">
-          <button onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); navigate('/'); }}
+          <button onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); navigate('/', { replace: true }); }}
             className="w-full flex items-center gap-3 px-3 py-2.5 text-red-400 hover:bg-red-500/10 rounded-xl font-medium text-sm transition-colors">
             <LogOut className="h-4 w-4" /> Sign Out
           </button>
@@ -258,7 +263,7 @@ const AdminDashboard = () => {
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto">
-            {activeTab === 'dashboard' && <DashboardHome students={students} exams={exams} results={results} tickets={tickets} onNavigate={setActiveTab} />}
+            {activeTab === 'dashboard' && <DashboardHome students={students} exams={exams} results={results} tickets={tickets} onNavigate={(tab) => setActiveTab(tab)} />}
             {activeTab === 'students' && <StudentsTab students={students} onRefresh={loadAll} />}
             {activeTab === 'kyc' && <KycTab students={students} onRefresh={loadAll} />}
             {activeTab === 'exams' && <ExamsTab exams={exams} />}

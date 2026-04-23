@@ -179,6 +179,24 @@ const ActiveExam = () => {
     }).catch(() => {});
   }, [id]);
 
+  // After submit: replace history so back button can't return to exam
+  useEffect(() => {
+    if (submitResult !== null) {
+      window.history.replaceState(null, '', window.location.href);
+    }
+  }, [submitResult]);
+
+  // Block browser back button during active exam
+  useEffect(() => {
+    if (!examStarted || submitResult !== null) return;
+    const blockBack = () => {
+      window.history.pushState(null, '', window.location.href);
+    };
+    window.history.pushState(null, '', window.location.href);
+    window.addEventListener('popstate', blockBack);
+    return () => window.removeEventListener('popstate', blockBack);
+  }, [examStarted, submitResult]);
+
   // Auto-submit on tab close / window unload
   useEffect(() => {
     const handleUnload = () => {
@@ -405,7 +423,7 @@ const ActiveExam = () => {
             <p className="font-bold mb-1">Why is this required?</p>
             <p>The proctoring system requires a full desktop browser with webcam access and screen monitoring capabilities that are not available on mobile devices.</p>
           </div>
-          <button onClick={() => navigate('/dashboard')} className="w-full bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold transition-all">
+          <button onClick={() => navigate('/dashboard', { replace: true })} className="w-full bg-slate-700 hover:bg-slate-600 text-white py-3 rounded-xl font-bold transition-all">
             Return to Dashboard
           </button>
         </div>
@@ -533,7 +551,7 @@ const ActiveExam = () => {
             </span>
           </div>
 
-          <button onClick={() => navigate('/dashboard')} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl font-bold transition-all shadow-lg">Return to Dashboard</button>
+          <button onClick={() => navigate('/dashboard', { replace: true })} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl font-bold transition-all shadow-lg">Return to Dashboard</button>
         </div>
       </div>
     );

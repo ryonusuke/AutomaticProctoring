@@ -429,3 +429,14 @@ exports.deleteNotification = async (req, res) => {
     res.status(200).json({ success: true });
   } catch { res.status(400).json({ success: false }); }
 };
+
+// @route DELETE /api/auth/notifications/clear-all
+exports.clearAllNotifications = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    const jwt = require('jsonwebtoken');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    await User.updateOne({ _id: decoded.id }, { $set: { notifications: [] } });
+    res.status(200).json({ success: true });
+  } catch { res.status(400).json({ success: false }); }
+};

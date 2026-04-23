@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ShieldAlert, MonitorCheck, Video, ArrowRight, ChevronDown,
   Fingerprint, Lock, Eye, Zap, BookOpen, Users, CheckCircle2,
@@ -170,10 +171,23 @@ const FAQS = [
 
 // ── Main ───────────────────────────────────────────────────────────────────
 const Home = () => {
+  const navigate = useNavigate();
   const [authOpen, setAuthOpen] = useState(false);
   const [authView, setAuthView] = useState('login');
   const [activeTab, setActiveTab] = useState('monitoring');
   const [openFaq, setOpenFaq] = useState(0);
+
+  // Redirect already-logged-in users to their dashboard
+  useEffect(() => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
+    if (token && userStr) {
+      const user = JSON.parse(userStr);
+      if (user.role === 'admin') navigate('/admin', { replace: true });
+      else if (user.role === 'examiner') navigate('/admin-dashboard', { replace: true });
+      else navigate('/dashboard', { replace: true });
+    }
+  }, [navigate]);
 
   const openAuth = (view) => { setAuthView(view); setAuthOpen(true); };
 

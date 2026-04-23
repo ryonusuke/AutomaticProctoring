@@ -138,6 +138,27 @@ exports.submitExam = async (req, res) => {
     const result = await Result.create({ studentId, examId: exam._id, score, totalMarks, trustScore, violations, status, answers, timeTaken });
     await Exam.findByIdAndUpdate(exam._id, { status: 'completed' });
 
+    // Notify the exam's teacher
+    const student = await User.findById(studentId).select('name');
+    if (exam.examinerId) {
+      const violationNote = violations.length > 0 ? ` (${violations.length} violation${violations.length > 1 ? 's' : ''} detected)` : '';
+      const statusLabel = status === 'terminated_for_cheating' ? '⚠️ Terminated for cheating' : status === 'pending_review' ? '📝 Pending manual review' : `Score: ${score}/${totalMarks}`;
+      await User.findByIdAndUpdate(exam.examinerId, {
+        $push: {
+          notifications: {
+            $each: [{
+              type: violations.length > 0 ? 'alert' : 'info',
+              title: `Exam Submitted: ${exam.title}`,
+              message: `${student?.name || 'A student'} submitted "${exam.title}" (${exam.courseCode}). ${statusLabel}${violationNote}.`,
+              isRead: false,
+              date: new Date()
+            }],
+            $position: 0
+          }
+        }
+      });
+    }
+
     res.status(201).json({ success: true, data: result });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

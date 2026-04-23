@@ -3,7 +3,7 @@ const passport = require('passport');
 const {
   register, login, verifyEmail, resendOTP, forgotPassword,
   resetPassword, submitKyc, googleAuthCallback, getMe,
-  markNotificationRead, markAllNotificationsRead, deleteNotification
+  markNotificationRead, markAllNotificationsRead, deleteNotification, clearAllNotifications
 } = require('../controllers/authController');
 
 const router = express.Router();
@@ -11,6 +11,7 @@ const router = express.Router();
 router.get('/me', getMe);
 router.put('/notifications/read-all', markAllNotificationsRead);
 router.put('/notifications/:notifId/read', markNotificationRead);
+router.delete('/notifications/clear-all', clearAllNotifications);
 router.delete('/notifications/:notifId', deleteNotification);
 
 router.post('/register', register);
