@@ -15,17 +15,19 @@ const { updatePassword } = require('./controllers/authController');
 const app = express();
 
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    const allowed = [process.env.CLIENT_URL, 'http://localhost:5173', 'http://localhost:5000'].filter(Boolean);
+    if (!origin || allowed.includes(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
-// Security headers — disables MIME sniffing, sets XSS protection, prevents clickjacking
+
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  contentSecurityPolicy: false, // disabled to allow face-api model loading from /public
+  contentSecurityPolicy: false,
 }));
-// CSRF mitigation: JWT in Authorization header (not cookies) means CSRF is not exploitable.
-// All state-changing requests require a valid Bearer token which a CSRF attacker cannot read.
-// This is the standard SPA CSRF mitigation pattern.
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(passport.initialize());
@@ -42,7 +44,6 @@ app.get('/api/health', (_req, res) =>
   res.status(200).json({ status: 'success', message: 'Proctoring API is running.' })
 );
 
-// Test route to verify OAuth config
 app.get('/api/auth/test-google', (req, res) => {
   res.json({
     clientId: process.env.GOOGLE_CLIENT_ID,
