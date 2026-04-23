@@ -262,8 +262,14 @@ exports.googleAuthCallback = async (req, res) => {
     }
 
     const token = generateToken(user._id, '1d');
+    // Strip large base64 images from kyc before encoding in URL — they make the redirect URI too large
+    const kycSafe = user.kyc ? {
+      isVerified: user.kyc.isVerified,
+      status: user.kyc.status,
+      verifiedAt: user.kyc.verifiedAt,
+    } : undefined;
     const userData = encodeURIComponent(
-      JSON.stringify({ id: user._id, name: user.name, email: user.email, role: user.role, kyc: user.kyc })
+      JSON.stringify({ id: user._id, name: user.name, email: user.email, role: user.role, kyc: kycSafe })
     );
 
     const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/auth/callback?token=${token}&user=${userData}`;
