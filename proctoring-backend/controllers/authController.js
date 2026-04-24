@@ -288,13 +288,23 @@ const faceDistance = (a, b) => {
   return Math.sqrt(a.reduce((sum, v, i) => sum + (v - b[i]) ** 2, 0));
 };
 
-// Simple hash of first 200 chars of base64 image to detect same ID image reuse
+// Hash of multiple samples across the base64 image to reduce false collisions
 const imageHash = (base64) => {
   if (!base64) return null;
-  const sample = base64.replace(/^data:image\/\w+;base64,/, '').slice(0, 500);
-  let h = 0;
-  for (let i = 0; i < sample.length; i++) h = (Math.imul(31, h) + sample.charCodeAt(i)) | 0;
-  return h.toString();
+  const data = base64.replace(/^data:image\/\w+;base64,/, '');
+  if (data.length < 100) return null;
+  // Sample from start, middle, and end for a more unique fingerprint
+  const s1 = data.slice(0, 300);
+  const s2 = data.slice(Math.floor(data.length / 2) - 150, Math.floor(data.length / 2) + 150);
+  const s3 = data.slice(-300);
+  const sample = s1 + s2 + s3;
+  let h1 = 0x811c9dc5, h2 = 0xdeadbeef;
+  for (let i = 0; i < sample.length; i++) {
+    const c = sample.charCodeAt(i);
+    h1 = (Math.imul(h1 ^ c, 0x01000193)) >>> 0;
+    h2 = (Math.imul(h2 ^ c, 0x9e3779b9)) >>> 0;
+  }
+  return `${h1.toString(16)}-${h2.toString(16)}`;
 };
 
 // @desc    Submit KYC
@@ -314,8 +324,8 @@ exports.submitKyc = async (req, res) => {
 
       for (const other of others) {
         const dist = faceDistance(idDescriptor, other.kyc.idDescriptor);
-        // Threshold: < 0.45 = same person (face-api.js standard)
-        if (dist < 0.45) {
+        // Threshold: < 0.40 = same person (stricter to avoid false positives)
+        if (dist < 0.40) {
           return res.status(409).json({
             success: false,
             message: `Duplicate face detected. This face is already registered to another account. If this is a mistake, contact your administrator.`,
@@ -345,10 +355,28 @@ exports.submitKyc = async (req, res) => {
       }
     }
 
+    // ── Server-side face match: verify live face matches ID descriptor ──
+    let serverVerified = false;
+    if (autoApprove && idDescriptor?.length && req.body.faceDescriptor?.length) {
+      const liveDist = faceDistance(idDescriptor, req.body.faceDescriptor);
+      // Must be within 0.50 distance for server-side approval
+      serverVerified = liveDist < 0.50;
+      if (!serverVerified) {
+        return res.status(400).json({
+          success: false,
+          message: 'Face verification failed: live face does not match the uploaded ID. Please try again with better lighting.',
+        });
+      }
+    } else if (autoApprove && idDescriptor?.length && !req.body.faceDescriptor?.length) {
+      // Client claims verified but sent no live descriptor — reject auto-approve
+      serverVerified = false;
+    }
+
     // ── Save KYC ─────────────────────────────────────────────────────────
+    const shouldAutoApprove = autoApprove === true && serverVerified;
     user.kyc = {
-      isVerified: autoApprove === true,
-      status: autoApprove ? 'approved' : 'pending',
+      isVerified: shouldAutoApprove,
+      status: shouldAutoApprove ? 'approved' : 'pending',
       idImage,
       faceImage,
       aiConfidenceScore: clientConfidence,
@@ -359,7 +387,7 @@ exports.submitKyc = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: autoApprove ? 'Identity verified successfully!' : 'Data secured. Pending Admin review.',
+      message: shouldAutoApprove ? 'Identity verified successfully!' : 'Data secured. Pending Admin review.',
       kyc: user.kyc,
     });
   } catch (error) {

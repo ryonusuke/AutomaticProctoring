@@ -7,6 +7,7 @@ export const useBiometrics = (videoRef, mode = 'kyc', baselineDescriptor = null,
   const [matchScore, setMatchScore] = useState(0);
   const [isModelsLoaded, setIsModelsLoaded] = useState(false);
   const faceMatcherRef = useRef(null);
+  const lastDescriptorRef = useRef(null);
 
   // 1. Load Neural Networks
   useEffect(() => {
@@ -33,7 +34,8 @@ export const useBiometrics = (videoRef, mode = 'kyc', baselineDescriptor = null,
     if (baselineDescriptor && isModelsLoaded) {
       const descriptorArray = new Float32Array(baselineDescriptor);
       const labeledDescriptor = new faceapi.LabeledFaceDescriptors('Authorized Student', [descriptorArray]);
-      faceMatcherRef.current = new faceapi.FaceMatcher(labeledDescriptor, 0.6); 
+      // 0.50 threshold: stricter than default 0.6 to prevent false matches during KYC
+      faceMatcherRef.current = new faceapi.FaceMatcher(labeledDescriptor, 0.50); 
     }
   }, [baselineDescriptor, isModelsLoaded]);
 
@@ -85,6 +87,7 @@ export const useBiometrics = (videoRef, mode = 'kyc', baselineDescriptor = null,
       }
 
       const currentFaceDescriptor = detections[0].descriptor;
+      lastDescriptorRef.current = currentFaceDescriptor;
 
       if (mode === 'kyc' && !faceMatcherRef.current) {
         setStatus('face_aligned');
@@ -119,5 +122,5 @@ export const useBiometrics = (videoRef, mode = 'kyc', baselineDescriptor = null,
     return () => clearInterval(interval);
   }, [analyzeFrame, isModelsLoaded, isScanning]);
 
-  return { status, matchScore, extractDescriptorFromImage, isModelsLoaded };
+  return { status, matchScore, extractDescriptorFromImage, isModelsLoaded, lastDescriptor: lastDescriptorRef.current };
 };

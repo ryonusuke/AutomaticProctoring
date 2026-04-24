@@ -19,7 +19,9 @@ const KycVerification = () => {
 
   // THE MAGIC HAPPENS HERE: We pass the idDescriptor into the hook and switch to 'exam' mode in Step 2 
   // so the AI mathematically compares your live face to your ID card instantly.
-  const { status: aiStatus, matchScore, extractDescriptorFromImage, isModelsLoaded } = useBiometrics(
+  const [liveDescriptor, setLiveDescriptor] = useState(null);
+
+  const { status: aiStatus, matchScore, extractDescriptorFromImage, isModelsLoaded, lastDescriptor } = useBiometrics(
     videoRef, 
     step === 2 ? 'exam' : 'kyc', 
     idDescriptor, 
@@ -99,11 +101,11 @@ const KycVerification = () => {
       
       const compressedLiveFace = canvas.toDataURL('image/jpeg', 0.8);
       setFaceImage(compressedLiveFace);
-      submitKycData(compressedLiveFace); 
+      submitKycData(compressedLiveFace, lastDescriptor); 
     }
   };
 
-  const submitKycData = async (capturedFace) => {
+  const submitKycData = async (capturedFace, capturedDescriptor) => {
     setStep(3); 
     setIsProcessing(true);
     
@@ -123,7 +125,8 @@ const KycVerification = () => {
         faceImage: capturedFace,
         clientConfidence: matchScore, 
         idDescriptor: idDescriptor,
-        autoApprove: isAutoApproved // NEW: Tell the backend to bypass the Admin
+        faceDescriptor: capturedDescriptor ? Array.from(capturedDescriptor) : null, // Send live face descriptor for server-side verification
+        autoApprove: isAutoApproved
       });
 
       if (response.data.success) {
