@@ -31,3 +31,7 @@ dist-ssr
 # Backup files
 *.backup
 *.backup2
+
+# Lock files
+package-lock.json
+proctoring-backend/package-lock.json
