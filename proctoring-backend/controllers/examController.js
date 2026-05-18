@@ -24,7 +24,7 @@ const notifyUsers = async (userIds, title, message, type = 'info') => {
     <p style="color:#374151;">${message}</p>
     <p style="color:#6b7280;font-size:12px;margin-top:24px;">Log in to the Automatic Proctoring System for details.</p>
   </div>`;
-  users.forEach(u => sendEmail({ to: u.email, subject: title, html }).catch(() => {}));
+  users.forEach(u => sendEmail({ to: u.email, subject: title, html }).catch(err => console.error(`Email failed for ${u.email}:`, err.message)));
 };
 
 const notifyAllStudents = (title, message) => notifyUsers(null, title, message);

@@ -27,7 +27,26 @@ exports.register = async (req, res) => {
     const otp = generateOTP();
     const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 min
 
-    const user = await User.create({
+    let user;
+    try {
+      await sendEmail({
+        to: email,
+        subject: 'Verify your email — Proctoring System',
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e5e7eb;border-radius:12px;">
+            <h2 style="color:#1d4ed8;margin-bottom:8px;">Welcome, ${name}!</h2>
+            <p style="color:#374151;">Use the OTP below to verify your email address. It expires in <strong>15 minutes</strong>.</p>
+            <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#1d4ed8;text-align:center;padding:24px 0;">${otp}</div>
+            <p style="color:#6b7280;font-size:13px;">If you didn't create this account, you can safely ignore this email.</p>
+          </div>
+        `,
+      });
+    } catch (emailErr) {
+      console.error('Registration email failed:', emailErr.message);
+      return res.status(500).json({ success: false, message: 'Failed to send verification email. Please try again.' });
+    }
+
+    user = await User.create({
       name,
       email,
       password,
@@ -36,22 +55,6 @@ exports.register = async (req, res) => {
       emailVerificationOTP: otp,
       emailVerificationExpires: expires,
     });
-
-    // Send email non-blocking — don't fail registration if email fails
-    sendEmail({
-      to: email,
-      subject: 'Verify your email — Proctoring System',
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e5e7eb;border-radius:12px;">
-          <h2 style="color:#1d4ed8;margin-bottom:8px;">Welcome, ${name}!</h2>
-          <p style="color:#374151;">Use the OTP below to verify your email address. It expires in <strong>15 minutes</strong>.</p>
-          <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#1d4ed8;text-align:center;padding:24px 0;">${otp}</div>
-          <p style="color:#6b7280;font-size:13px;">If you didn't create this account, you can safely ignore this email.</p>
-        </div>
-      `,
-    }).catch(err => console.error('Email send failed:', err.message));
-
-    console.log(`[DEV] Email OTP for ${email}: ${otp}`);
 
     res.status(201).json({
       success: true,
@@ -98,7 +101,8 @@ exports.verifyEmail = async (req, res) => {
 exports.resendOTP = async (req, res) => {
   try {
     const { email } = req.body;
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email })
+      .select('+emailVerificationOTP +emailVerificationExpires');
 
     if (!user)
       return res.status(404).json({ success: false, message: 'User not found.' });
@@ -107,21 +111,28 @@ exports.resendOTP = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email is already verified.' });
 
     const otp = generateOTP();
-    user.emailVerificationOTP = otp;
-    user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
-    await user.save({ validateBeforeSave: false });
+    const expires = new Date(Date.now() + 15 * 60 * 1000);
 
-    await sendEmail({
-      to: email,
-      subject: 'New OTP — Proctoring System',
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e5e7eb;border-radius:12px;">
-          <h2 style="color:#1d4ed8;">New Verification OTP</h2>
-          <p style="color:#374151;">Your new OTP (expires in 15 minutes):</p>
-          <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#1d4ed8;text-align:center;padding:24px 0;">${otp}</div>
-        </div>
-      `,
-    });
+    try {
+      await sendEmail({
+        to: email,
+        subject: 'New OTP — Proctoring System',
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e5e7eb;border-radius:12px;">
+            <h2 style="color:#1d4ed8;">New Verification OTP</h2>
+            <p style="color:#374151;">Your new OTP (expires in 15 minutes):</p>
+            <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#1d4ed8;text-align:center;padding:24px 0;">${otp}</div>
+          </div>
+        `,
+      });
+    } catch (emailErr) {
+      console.error('Resend OTP email failed:', emailErr.message);
+      return res.status(500).json({ success: false, message: 'Failed to send OTP email. Please try again.' });
+    }
+
+    user.emailVerificationOTP = otp;
+    user.emailVerificationExpires = expires;
+    await user.save({ validateBeforeSave: false });
 
     res.status(200).json({ success: true, message: 'New OTP sent to your email.' });
   } catch (error) {
@@ -179,22 +190,28 @@ exports.forgotPassword = async (req, res) => {
       return res.status(200).json({ success: true, message: 'If that email exists, a reset OTP has been sent.' });
 
     const otp = generateOTP();
-    user.resetPasswordOTP = otp;
-    user.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 min
-    await user.save({ validateBeforeSave: false });
 
-    await sendEmail({
-      to: email,
-      subject: 'Password Reset OTP — Proctoring System',
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e5e7eb;border-radius:12px;">
-          <h2 style="color:#dc2626;">Password Reset Request</h2>
-          <p style="color:#374151;">Use this OTP to reset your password. It expires in <strong>10 minutes</strong>.</p>
-          <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#dc2626;text-align:center;padding:24px 0;">${otp}</div>
-          <p style="color:#6b7280;font-size:13px;">If you didn't request this, please ignore this email.</p>
-        </div>
-      `,
-    });
+    try {
+      await sendEmail({
+        to: email,
+        subject: 'Password Reset OTP — Proctoring System',
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;border:1px solid #e5e7eb;border-radius:12px;">
+            <h2 style="color:#dc2626;">Password Reset Request</h2>
+            <p style="color:#374151;">Use this OTP to reset your password. It expires in <strong>10 minutes</strong>.</p>
+            <div style="font-size:36px;font-weight:700;letter-spacing:8px;color:#dc2626;text-align:center;padding:24px 0;">${otp}</div>
+            <p style="color:#6b7280;font-size:13px;">If you didn't request this, please ignore this email.</p>
+          </div>
+        `,
+      });
+    } catch (emailErr) {
+      console.error('Password reset email failed:', emailErr.message);
+      return res.status(200).json({ success: true, message: 'If that email exists, a reset OTP has been sent.' });
+    }
+
+    user.resetPasswordOTP = otp;
+    user.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save({ validateBeforeSave: false });
 
     res.status(200).json({ success: true, message: 'If that email exists, a reset OTP has been sent.' });
   } catch (error) {
