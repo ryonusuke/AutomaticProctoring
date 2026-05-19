@@ -26,7 +26,8 @@
     "nodemailer": "^8.0.5",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
-    "pdfreader": "^3.0.8"
+    "pdfreader": "^3.0.8",
+    "resend": "^6.12.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
